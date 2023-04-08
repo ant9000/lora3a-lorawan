@@ -39,6 +39,7 @@
 #include "periph/gpio.h"
 
 #include "fram.h"
+#include "od.h"
 
 static gnrc_netif_t *netif;
 
@@ -60,10 +61,23 @@ int loramac_erase(int argc, char **argv)
     return 0;
 }
 
+int loramac_dump(int argc, char **argv)
+{
+    (void)argc;
+    (void)argv;
+    gnrc_netif_lorawan_t lorawan;
+    fram_read(0, &lorawan, sizeof(lorawan));
+    puts("LoRaWAN MAC parameters:");
+    od_hex_dump(&lorawan, sizeof(lorawan), 0);
+    return 0;
+}
+
+
 static const shell_command_t shell_commands[] =
 {
     { "loramac_save",   "save LoRaWAN MAC params to FRAM",    loramac_save  },
     { "loramac_erase",  "erase LoRaWAN MAC params from FRAM", loramac_erase },
+    { "loramac_dump",   "dump LoRaWAN MAC params from FRAM",  loramac_dump  },
     { NULL,             NULL,                                 NULL          }
 };
 
@@ -82,7 +96,6 @@ int main(void)
 
     netif_t *iface = netif_get_by_name("3");
     netif = container_of(iface, gnrc_netif_t, netif);
-    printf("netif->lorawan: %p (%d bytes)\n", &netif->lorawan, sizeof(netif->lorawan));
 
     /* read lorawan from FRAM */
     gnrc_netif_lorawan_t lorawan;
@@ -115,12 +128,12 @@ int main(void)
         netopt_enable_t en = NETOPT_ENABLE;
         if (netif_set_opt(iface, NETOPT_LINK, 0, &en, sizeof(en)) < 0) {
             puts("ERROR: unable to set link up");
-            return 1;
+        } else {
+            puts("Join packet sent, wait for the interface to be up then call loramac_save");
         }
-        puts("Join packet sent, wait for the interface to be up");
     }
 
-    puts("NOTE: remember to call loramac_save on first join and after each packet sent");
+    puts("NOTE: remember to call loramac_save after each sent packet");
 
     char line_buf[SHELL_DEFAULT_BUFSIZE];
     shell_run(shell_commands, line_buf, SHELL_DEFAULT_BUFSIZE);
