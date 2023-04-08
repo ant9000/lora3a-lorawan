@@ -12,6 +12,7 @@ PORT ?= /dev/ttyUSB0
 USEMODULE += saml21_cpu_debug
 USEMODULE += saml21_backup_mode
 USEMODULE += saul_default
+USEMODULE += fram
 
 USEMODULE += netdev_default
 USEMODULE += auto_init_gnrc_netif
