@@ -41,13 +41,15 @@
 #include "fram.h"
 #include "od.h"
 
+#define LORAMAC_OFFSET  0
+
 static gnrc_netif_t *netif;
 
 int loramac_save(int argc, char **argv)
 {
     (void)argc;
     (void)argv;
-    fram_write(0, (uint8_t *)&netif->lorawan, sizeof(netif->lorawan));
+    fram_write(LORAMAC_OFFSET, (uint8_t *)&netif->lorawan, sizeof(netif->lorawan));
     puts("LoRaWAN MAC parameters saved");
     return 0;
 }
@@ -56,7 +58,9 @@ int loramac_erase(int argc, char **argv)
 {
     (void)argc;
     (void)argv;
-    fram_erase();
+    gnrc_netif_lorawan_t lorawan;
+    memset(&lorawan, 0, sizeof(lorawan));
+    fram_write(LORAMAC_OFFSET, (uint8_t *)&lorawan, sizeof(lorawan));
     puts("LoRaWAN MAC parameters cleared");
     return 0;
 }
@@ -66,12 +70,11 @@ int loramac_dump(int argc, char **argv)
     (void)argc;
     (void)argv;
     gnrc_netif_lorawan_t lorawan;
-    fram_read(0, &lorawan, sizeof(lorawan));
+    fram_read(LORAMAC_OFFSET, &lorawan, sizeof(lorawan));
     puts("LoRaWAN MAC parameters:");
     od_hex_dump(&lorawan, sizeof(lorawan), 0);
     return 0;
 }
-
 
 static const shell_command_t shell_commands[] =
 {
@@ -80,6 +83,20 @@ static const shell_command_t shell_commands[] =
     { "loramac_dump",   "dump LoRaWAN MAC params from FRAM",  loramac_dump  },
     { NULL,             NULL,                                 NULL          }
 };
+
+static netdev_event_cb_t original_iface_cb;
+static void iface_cb(netdev_t *dev, netdev_event_t event)
+{
+    gnrc_netif_t *netif = dev->context;
+
+    if (event == NETDEV_EVENT_ISR) {
+        event_post(&netif->evq[GNRC_NETIF_EVQ_INDEX_PRIO_LOW], &netif->event_isr);
+    }
+    else {
+        original_iface_cb(dev, event);
+        fram_write(LORAMAC_OFFSET, (uint8_t *)&netif->lorawan, sizeof(netif->lorawan));
+    }
+}
 
 int main(void)
 {
@@ -96,21 +113,20 @@ int main(void)
 
     netif_t *iface = netif_get_by_name("3");
     netif = container_of(iface, gnrc_netif_t, netif);
+    original_iface_cb = netif->dev->event_callback;
+    netif->dev->event_callback = iface_cb;
 
     /* read lorawan from FRAM */
     gnrc_netif_lorawan_t lorawan;
     fram_init();
-    fram_read(0, &lorawan, sizeof(lorawan));
+    fram_read(LORAMAC_OFFSET, &lorawan, sizeof(lorawan));
     if (memcmp(lorawan.deveui, netif->lorawan.deveui, sizeof(netif->lorawan.deveui)) == 0) {
         puts("Found LoRaWAN params in FRAM, restoring");
         memcpy(netif->lorawan.appskey, lorawan.appskey, sizeof(netif->lorawan.appskey));
         memcpy(netif->lorawan.fnwksintkey, lorawan.fnwksintkey, sizeof(netif->lorawan.fnwksintkey));
-        netif->lorawan.mac.mcps.fcnt = lorawan.mac.mcps.fcnt;
-        netif->lorawan.mac.mcps.fcnt_down = lorawan.mac.mcps.fcnt_down;
-        memcpy(netif->lorawan.mac.mcps.mhdr_mic, lorawan.mac.mcps.mhdr_mic, sizeof(netif->lorawan.mac.mcps.mhdr_mic));
-        netif->lorawan.mac.mlme.activation = lorawan.mac.mlme.activation;
-        netif->lorawan.mac.mlme.nid = lorawan.mac.mlme.nid;
-        memcpy(netif->lorawan.mac.mlme.dev_nonce, lorawan.mac.mlme.dev_nonce, sizeof(netif->lorawan.mac.mlme.dev_nonce));
+        memcpy(&netif->lorawan.mac.mcps, &lorawan.mac.mcps, sizeof(netif->lorawan.mac.mcps));
+        netif->lorawan.mac.mcps.msdu = NULL;
+        memcpy(&netif->lorawan.mac.mlme, &lorawan.mac.mlme, sizeof(netif->lorawan.mac.mlme));
         memcpy(netif->lorawan.mac.channel, lorawan.mac.channel, sizeof(netif->lorawan.mac.channel));
         netif->lorawan.mac.channel_mask = lorawan.mac.channel_mask;
         netif->lorawan.mac.dev_addr = lorawan.mac.dev_addr;
@@ -119,21 +135,26 @@ int main(void)
         netif->lorawan.mac.rx_delay = lorawan.mac.rx_delay;
         netif->lorawan.mac.last_dr = lorawan.mac.last_dr;
         netif->lorawan.mac.last_chan_idx = lorawan.mac.last_chan_idx;
+        netif->lorawan.flags = lorawan.flags;
+        netif->lorawan.demod_margin = lorawan.demod_margin;
+        netif->lorawan.num_gateways = lorawan.num_gateways;
+        netif->lorawan.datarate = lorawan.datarate;
+        netif->lorawan.port = lorawan.port;
+        netif->lorawan.ack_req = lorawan.ack_req;
+        netif->lorawan.otaa = lorawan.otaa;
+
         mlme_confirm_t confirm;
         confirm.type = MLME_JOIN;
         confirm.status = GNRC_LORAWAN_REQ_STATUS_SUCCESS;
         gnrc_lorawan_mlme_confirm(&netif->lorawan.mac, &confirm);
-    } else {
+    }
+    if (netif->lorawan.mac.mlme.activation == MLME_ACTIVATION_NONE) {
         puts("Trying to join LoRaWAN network");
         netopt_enable_t en = NETOPT_ENABLE;
         if (netif_set_opt(iface, NETOPT_LINK, 0, &en, sizeof(en)) < 0) {
             puts("ERROR: unable to set link up");
-        } else {
-            puts("Join packet sent, wait for the interface to be up then call loramac_save");
         }
     }
-
-    puts("NOTE: remember to call loramac_save after each sent packet");
 
     char line_buf[SHELL_DEFAULT_BUFSIZE];
     shell_run(shell_commands, line_buf, SHELL_DEFAULT_BUFSIZE);
