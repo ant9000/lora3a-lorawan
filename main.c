@@ -35,7 +35,7 @@
 #include "net/loramac.h"
 #include "net/gnrc/lorawan.h"
 
-#include "saml21_cpu_debug.h"
+#include "saml21_backup_mode.h"
 #include "periph/gpio.h"
 
 #include "fram.h"
@@ -76,27 +76,32 @@ int loramac_dump(int argc, char **argv)
     return 0;
 }
 
+int sleep_cmd(int argc, char **argv)
+{
+    if (argc != 2) {
+        puts("usage: sleep <seconds>");
+        return -1;
+    }
+    int sleep_secs = atoi(argv[1]);
+    if (sleep_secs <= 0) {
+        puts("Sleep time should be non negative.");
+        return -1;
+    }
+
+    fram_write(LORAMAC_OFFSET, (uint8_t *)&netif->lorawan, sizeof(netif->lorawan));
+    saml21_extwake_t extwake = { .pin=EXTWAKE_PIN6, .polarity=EXTWAKE_LOW, .flags=EXTWAKE_IN };
+    saml21_backup_mode_enter(RADIO_OFF_NOT_REQUESTED, extwake, sleep_secs, 1);
+    return 0;
+}
+
 static const shell_command_t shell_commands[] =
 {
     { "loramac_save",   "save LoRaWAN MAC params to FRAM",    loramac_save  },
     { "loramac_erase",  "erase LoRaWAN MAC params from FRAM", loramac_erase },
     { "loramac_dump",   "dump LoRaWAN MAC params from FRAM",  loramac_dump  },
+    { "sleep",          "enter deep sleep",                   sleep_cmd     },
     { NULL,             NULL,                                 NULL          }
 };
-
-static netdev_event_cb_t original_iface_cb;
-static void iface_cb(netdev_t *dev, netdev_event_t event)
-{
-    gnrc_netif_t *netif = dev->context;
-
-    if (event == NETDEV_EVENT_ISR) {
-        event_post(&netif->evq[GNRC_NETIF_EVQ_INDEX_PRIO_LOW], &netif->event_isr);
-    }
-    else {
-        original_iface_cb(dev, event);
-        fram_write(LORAMAC_OFFSET, (uint8_t *)&netif->lorawan, sizeof(netif->lorawan));
-    }
-}
 
 int main(void)
 {
@@ -113,8 +118,6 @@ int main(void)
 
     netif_t *iface = netif_get_by_name("3");
     netif = container_of(iface, gnrc_netif_t, netif);
-    original_iface_cb = netif->dev->event_callback;
-    netif->dev->event_callback = iface_cb;
 
     /* read lorawan from FRAM */
     gnrc_netif_lorawan_t lorawan;
@@ -142,6 +145,9 @@ int main(void)
         netif->lorawan.port = lorawan.port;
         netif->lorawan.ack_req = lorawan.ack_req;
         netif->lorawan.otaa = lorawan.otaa;
+
+        memset(&lorawan, 0, sizeof(lorawan));
+        fram_write(LORAMAC_OFFSET, (uint8_t *)&lorawan, sizeof(lorawan));
 
         mlme_confirm_t confirm;
         confirm.type = MLME_JOIN;
