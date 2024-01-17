@@ -37,9 +37,17 @@
 
 #include "saml21_backup_mode.h"
 #include "periph/gpio.h"
+#include "periph/cpuid.h"
 
 #include "fram.h"
 #include "od.h"
+
+#include "phydat.h"
+#include "saul_reg.h"
+
+#include "net/gnrc.h"
+#include "net/gnrc/netif/hdr.h"
+#include "ztimer.h"
 
 #define LORAMAC_OFFSET  0
 
@@ -94,8 +102,19 @@ int sleep_cmd(int argc, char **argv)
     return 0;
 }
 
+int cpuid_cmd(int argc, char **argv)
+{
+    (void)argc;
+    (void)argv;
+    uint8_t cid[CPUID_LEN];
+    cpuid_get(cid);
+    od_hex_dump(cid, sizeof(cid), 0);
+    return 0;
+}
+
 static const shell_command_t shell_commands[] =
 {
+    { "cpuid",          "print CPU ID",                       cpuid_cmd     },
     { "loramac_save",   "save LoRaWAN MAC params to FRAM",    loramac_save  },
     { "loramac_erase",  "erase LoRaWAN MAC params from FRAM", loramac_erase },
     { "loramac_dump",   "dump LoRaWAN MAC params from FRAM",  loramac_dump  },
@@ -105,8 +124,20 @@ static const shell_command_t shell_commands[] =
 
 int main(void)
 {
+    int enter_shell = 0;
+
     gpio_init(TCXO_PWR_PIN, GPIO_OUT);
     gpio_set(TCXO_PWR_PIN);
+
+    gpio_init(BTN0_PIN, BTN0_MODE);
+    if (gpio_read(BTN0_PIN) == 0) {
+        enter_shell = 1;
+    }
+
+    if (IS_USED(MODULE_SENSEAIR)) {
+        extern void auto_init_senseair(void);
+        auto_init_senseair();
+    }
 
     /* start the shell */
     puts("Initialization successful - starting the shell now");
@@ -118,12 +149,13 @@ int main(void)
 
     netif_t *iface = netif_get_by_name("3");
     netif = container_of(iface, gnrc_netif_t, netif);
+    uint8_t zero[8] = {0,0,0,0,0,0,0,0};
 
     /* read lorawan from FRAM */
     gnrc_netif_lorawan_t lorawan;
     fram_init();
     fram_read(LORAMAC_OFFSET, &lorawan, sizeof(lorawan));
-    if (memcmp(lorawan.deveui, netif->lorawan.deveui, sizeof(netif->lorawan.deveui)) == 0) {
+    if (memcmp(lorawan.deveui, zero, sizeof(zero)) != 0) {
         puts("Found LoRaWAN params in FRAM, restoring");
         memcpy(netif->lorawan.appskey, lorawan.appskey, sizeof(netif->lorawan.appskey));
         memcpy(netif->lorawan.fnwksintkey, lorawan.fnwksintkey, sizeof(netif->lorawan.fnwksintkey));
@@ -154,16 +186,76 @@ int main(void)
         confirm.status = GNRC_LORAWAN_REQ_STATUS_SUCCESS;
         gnrc_lorawan_mlme_confirm(&netif->lorawan.mac, &confirm);
     }
-    if (netif->lorawan.mac.mlme.activation == MLME_ACTIVATION_NONE) {
-        puts("Trying to join LoRaWAN network");
-        netopt_enable_t en = NETOPT_ENABLE;
-        if (netif_set_opt(iface, NETOPT_LINK, 0, &en, sizeof(en)) < 0) {
-            puts("ERROR: unable to set link up");
+    if (memcmp(netif->lorawan.deveui, zero, sizeof(zero)) != 0) {
+        if (netif->lorawan.mac.mlme.activation == MLME_ACTIVATION_NONE) {
+            puts("Trying to join LoRaWAN network");
+            netopt_enable_t en = NETOPT_ENABLE;
+            if (netif_set_opt(iface, NETOPT_LINK, 0, &en, sizeof(en)) < 0) {
+                puts("ERROR: unable to set link up");
+                enter_shell = 1;
+            }
         }
+    } else {
+        enter_shell = 1;
     }
 
-    char line_buf[SHELL_DEFAULT_BUFSIZE];
-    shell_run(shell_commands, line_buf, SHELL_DEFAULT_BUFSIZE);
+    if (enter_shell) {
+        char line_buf[SHELL_DEFAULT_BUFSIZE];
+        shell_run(shell_commands, line_buf, SHELL_DEFAULT_BUFSIZE);
+    } else {
+        // read sensor
+        phydat_t res;
+        char msg[16];
+        saul_reg_t *dev = saul_reg_find_nth(4); // CO2
+        if (dev == NULL) {
+            puts("No SAUL devices present");
+        } else {
+            saul_reg_read(dev, &res);
+            snprintf(msg, sizeof(msg), "co2:%u", res.val[0]);
+            printf("Will send: '%s'\n", msg);
+        }
+
+        // send message
+        uint8_t addr[GNRC_NETIF_L2ADDR_MAXLEN];
+        size_t addr_len;
+        gnrc_pktsnip_t *pkt, *hdr;
+        gnrc_netif_hdr_t *nethdr;
+        uint8_t flags = 0x00;
+
+        /* parse address */
+        addr_len = gnrc_netif_addr_from_str("42", addr);
+
+        /* put packet together */
+        pkt = gnrc_pktbuf_add(NULL, msg, strlen(msg), GNRC_NETTYPE_UNDEF);
+        if (pkt == NULL) {
+            printf("error: packet buffer full\n");
+            return 1;
+        }
+        hdr = gnrc_netif_hdr_build(NULL, 0, addr, addr_len);
+        if (hdr == NULL) {
+            printf("error: packet buffer full\n");
+            gnrc_pktbuf_release(pkt);
+            return 1;
+        }
+        pkt = gnrc_pkt_prepend(pkt, hdr);
+        nethdr = (gnrc_netif_hdr_t *)hdr->data;
+        nethdr->flags = flags;
+        /* and send it */
+        if (gnrc_netif_send(netif, pkt) < 1) {
+            printf("error: unable to send\n");
+            gnrc_pktbuf_release(pkt);
+            return 1;
+        }
+        puts("Sent, now waiting for RX windows.");
+        ztimer_sleep(ZTIMER_MSEC, 10000);
+
+        // enter deep sleep
+        puts("Sleeping...");
+        int sleep_secs = 30;
+        fram_write(LORAMAC_OFFSET, (uint8_t *)&netif->lorawan, sizeof(netif->lorawan));
+        saml21_extwake_t extwake = { .pin=EXTWAKE_PIN6, .polarity=EXTWAKE_HIGH, .flags=EXTWAKE_IN_PU };
+        saml21_backup_mode_enter(RADIO_OFF_NOT_REQUESTED, extwake, sleep_secs, 1);
+    }
 
     return 0;
 }

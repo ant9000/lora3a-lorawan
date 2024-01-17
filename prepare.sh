@@ -15,4 +15,4 @@ if ! [ -z "$1" ]; then
   fi
   config=$(echo $board|cut -f2- -d=)
 fi
-env $config make -j flash term
+env $config make -j flash
