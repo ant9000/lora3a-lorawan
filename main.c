@@ -134,10 +134,8 @@ int main(void)
         enter_shell = 1;
     }
 
-    if (IS_USED(MODULE_SENSEAIR)) {
-        extern void auto_init_senseair(void);
-        auto_init_senseair();
-    }
+    extern void auto_init_senseair(void);
+    auto_init_senseair();
 
     /* start the shell */
     puts("Initialization successful - starting the shell now");
@@ -204,8 +202,8 @@ int main(void)
         shell_run(shell_commands, line_buf, SHELL_DEFAULT_BUFSIZE);
     } else {
         // read sensor
-        phydat_t res;
         char msg[16];
+        phydat_t res;
         saul_reg_t *dev = saul_reg_find_nth(4); // CO2
         if (dev == NULL) {
             puts("No SAUL devices present");
@@ -240,6 +238,11 @@ int main(void)
         pkt = gnrc_pkt_prepend(pkt, hdr);
         nethdr = (gnrc_netif_hdr_t *)hdr->data;
         nethdr->flags = flags;
+
+        /* set power */
+        uint16_t power = CONFIG_LORAMAC_DEFAULT_TX_POWER;
+        netif_set_opt(iface, NETOPT_TX_POWER, 0, &power, sizeof(power));
+
         /* and send it */
         if (gnrc_netif_send(netif, pkt) < 1) {
             printf("error: unable to send\n");
@@ -253,8 +256,15 @@ int main(void)
         puts("Sleeping...");
         int sleep_secs = 30;
         fram_write(LORAMAC_OFFSET, (uint8_t *)&netif->lorawan, sizeof(netif->lorawan));
+        fram_off();
+        gpio_clear(ACME0_POWER_PIN);
+        gpio_clear(ACME_BUS_POWER_PIN);
+        netopt_state_t state = NETOPT_STATE_SLEEP;
+        netif_set_opt(iface, NETOPT_STATE, 0, &state, sizeof(netopt_state_t));
+        gpio_clear(TCXO_PWR_PIN);
+        gpio_clear(TX_OUTPUT_SEL_PIN);
         saml21_extwake_t extwake = { .pin=EXTWAKE_PIN6, .polarity=EXTWAKE_HIGH, .flags=EXTWAKE_IN_PU };
-        saml21_backup_mode_enter(RADIO_OFF_NOT_REQUESTED, extwake, sleep_secs, 1);
+        saml21_backup_mode_enter(0, extwake, sleep_secs, 1);
     }
 
     return 0;
