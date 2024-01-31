@@ -26,6 +26,9 @@ USEMODULE += shell_cmds_default
 USEMODULE += shell_extra_commands
 USEMODULE += od_string
 
+# needed for floating point
+CFLAGS += -DTHREAD_STACKSIZE_DEFAULT=2048
+
 CFLAGS += -DSX127X_PARAM_PASELECT=SX127X_PA_RFO
 
 DEVEUI ?= 0000000000000000
