@@ -26,9 +26,6 @@ int main(void)
         enter_shell = 1;
     }
 
-    /* start the shell */
-    puts("Initialization successful - starting the shell now");
-
     /* Receive LoRaWAN packets in GNRC pktdump */
     gnrc_netreg_entry_t dump = GNRC_NETREG_ENTRY_INIT_PID(GNRC_NETREG_DEMUX_CTX_ALL,
                                                           gnrc_pktdump_pid);
@@ -44,6 +41,9 @@ int main(void)
             if (netif_set_opt(iface, NETOPT_LINK, 0, &en, sizeof(en)) < 0) {
                 puts("ERROR: unable to set link up");
                 enter_shell = 1;
+            } else {
+                // TODO: optimize wait time
+                ztimer_sleep(ZTIMER_MSEC, 2000);
             }
         }
     } else {
@@ -51,9 +51,12 @@ int main(void)
     }
 
     if (enter_shell) {
+        puts("Initialization successful - starting the shell now");
+
         char line_buf[SHELL_DEFAULT_BUFSIZE];
         shell_run(shell_commands, line_buf, SHELL_DEFAULT_BUFSIZE);
     } else {
+        puts("Initialization successful - starting measure cycle");
 
         init_sensors();
         int len = read_sensors(msg, sizeof(msg));
@@ -63,7 +66,8 @@ int main(void)
             printf("Will send: '%s'\n", (char *)msg); // FIXME for binary data
             if (send_message(msg, len) == 0) {
                 puts("Packet sent, now waiting for RX windows.");
-                ztimer_sleep(ZTIMER_MSEC, 10000);
+                // TODO: optimize wait time
+                ztimer_sleep(ZTIMER_MSEC, 5000);
             } else {
                 puts("Error sending message.");
             }
