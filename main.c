@@ -26,8 +26,6 @@ int main(void)
         enter_shell = 1;
     }
 
-    init_sensors();
-
     /* start the shell */
     puts("Initialization successful - starting the shell now");
 
@@ -56,7 +54,11 @@ int main(void)
         char line_buf[SHELL_DEFAULT_BUFSIZE];
         shell_run(shell_commands, line_buf, SHELL_DEFAULT_BUFSIZE);
     } else {
+
+        init_sensors();
         int len = read_sensors(msg, sizeof(msg));
+        deinit_sensors();
+
         if (len > 0) {
             printf("Will send: '%s'\n", (char *)msg); // FIXME for binary data
             if (send_message(msg, len) == 0) {
@@ -75,9 +77,7 @@ int main(void)
         fram_write(LORAMAC_OFFSET, (uint8_t *)&netif->lorawan, sizeof(netif->lorawan));
         fram_off();
         gpio_clear(ACME0_POWER_PIN);
-#ifdef SENSEAIR_POWER_PIN
-        gpio_clear(SENSEAIR_POWER_PIN);
-#endif
+
         netopt_state_t state = NETOPT_STATE_SLEEP;
         netif_set_opt(iface, NETOPT_STATE, 0, &state, sizeof(netopt_state_t));
         gpio_clear(TCXO_PWR_PIN);

@@ -44,6 +44,7 @@ int cpuid_cmd(int argc, char **argv);
 
 int init_sensors(void);
 int read_sensors(uint8_t *msg, size_t len);
+int deinit_sensors(void);
 
 void restore_loramac(void);
 int send_message(uint8_t *buffer, size_t len);
