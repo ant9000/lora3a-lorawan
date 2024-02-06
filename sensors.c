@@ -33,16 +33,39 @@ bool sps30_init_done = false;
 #endif
 
 typedef struct {
+    int32_t vcc;
+    int32_t vpanel;
+#ifdef MODULE_BME68X
     double temperature[2];
     double pressure[2];
     double humidity[2];
     double gas_resistance[2][10];
+#endif
+#ifdef MODULE_SPS30
+    float mc_pm1;
+    float mc_pm2_5;
+    float mc_pm4;
+    float mc_pm10;
+    float nc_pm0_5;
+    float nc_pm1;
+    float nc_pm2_5;
+    float nc_pm4;
+    float nc_pm10;
+    float ps;
+#endif
 } sensors_data_t;
 static sensors_data_t sensor_data;
 
 char sensors_thread_stack[3][THREAD_STACKSIZE_MEDIUM];
 
 int init_sensors(void) {
+  int32_t vcc_raw = adc_sample(0, ADC_RES_16BIT);
+  int32_t vpanel_raw = adc_sample(1, ADC_RES_16BIT);
+  sensor_data.vcc = (vcc_raw * 4 * 1000) >> 16; // rescaled vcc/4 to 1V=65535 counts
+  sensor_data.vpanel = (vpanel_raw * (220 + 75) / 75 * 1000) >> 16; // adapted to real resistor partition factor (75k over 220k)
+  DEBUG("VCC: %ld, VCC rescaled: %ld\n", vcc_raw, sensor_data.vcc);
+  DEBUG("Vpanel: %ld, Vpanel rescaled: %ld\n", vpanel_raw, sensor_data.vpanel);
+
 #ifdef MODULE_BME68X
     int res;
     for (size_t i = 0; i < BME68X_NUMOF; i++) {
@@ -166,6 +189,16 @@ puts("@");
             }
             res = sps30_read_measurement(&sps30, &data);
             if (res == SPS30_OK) {
+                sensor_data.mc_pm1 = data.mc_pm1;
+                sensor_data.mc_pm2_5 = data.mc_pm2_5;
+                sensor_data.mc_pm4 = data.mc_pm4;
+                sensor_data.mc_pm10 = data.mc_pm10;
+                sensor_data.nc_pm0_5 = data.nc_pm0_5;
+                sensor_data.nc_pm1 = data.nc_pm1;
+                sensor_data.nc_pm2_5 = data.nc_pm2_5;
+                sensor_data.nc_pm4 = data.nc_pm4;
+                sensor_data.nc_pm10 = data.nc_pm10;
+                sensor_data.ps = data.ps;
                 puts("\nv==== SPS30 measurements ====v");
                 _sps30_print_val_row("MC PM",  "1.0", "[µg/m³]", data.mc_pm1);
                 _sps30_print_val_row("MC PM",  "2.5", "[µg/m³]", data.mc_pm2_5);
@@ -237,5 +270,9 @@ int read_sensors(uint8_t *msg, size_t len) {
         }
     } while (pending > 0);
     // TODO: serialize collected sensor data
+    // - Vcc, Vpanel        4 + 4
+    // - bme68x: TPH,Gx10   8 * (3 + 10) * BME68X_NUMOF
+    // - sps30:  MC PM10    4
+    // for 2 BME68X, packet is 220 bytes - almost full payload at DR 3,4,5
     return snprintf((char *)msg, len, "TODO:BME+SPS");
 }

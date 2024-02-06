@@ -23,6 +23,7 @@
 #include "saml21_backup_mode.h"
 #include "periph/gpio.h"
 #include "periph/cpuid.h"
+#include "periph/adc.h"
 
 #include "fram.h"
 #include "od.h"

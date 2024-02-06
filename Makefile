@@ -13,6 +13,7 @@ USEMODULE += saml21_cpu_debug
 USEMODULE += saml21_backup_mode
 USEMODULE += fram
 USEMODULE += periph_cpuid
+USEMODULE += periph_adc
 
 USEMODULE += netdev_default
 USEMODULE += auto_init_gnrc_netif
@@ -46,8 +47,6 @@ ifndef CONFIG_GNRC_PKTBUF_SIZE
 endif
 
 USEMODULE += printf_float
-
-CFLAGS += -DACME0_BUS_MODE=MODE_I2C
 
 SENSEAIR_PORT ?=
 SPS30_PORT ?= 1
