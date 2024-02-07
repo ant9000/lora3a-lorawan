@@ -2,7 +2,7 @@
 
 gnrc_netif_t *netif;
 uint8_t null_deveui[8] = {0,0,0,0,0,0,0,0};
-static uint8_t msg[200];
+static uint8_t msg[222];
 
 static const shell_command_t shell_commands[] =
 {
@@ -63,7 +63,8 @@ int main(void)
         deinit_sensors();
 
         if (len > 0) {
-            printf("Will send: '%s'\n", (char *)msg); // FIXME for binary data
+            printf("Will send:\n");
+            od_hex_dump(msg, len, 0);
             if (send_message(msg, len) == 0) {
                 puts("Packet sent, now waiting for RX windows.");
                 // TODO: optimize wait time
