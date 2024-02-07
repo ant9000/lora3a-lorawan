@@ -10,6 +10,11 @@
 #include "bme68x.h"
 #include "bme68x_params.h"
 static bme68x_t bme68x[BME68X_NUMOF];
+#ifdef MODULE_BME68X_FP
+#define BME68X_TYPE double
+#else
+#define BME68X_TYPE int32_t
+#endif
 /* Heater temperature in degree Celsius */
 static uint16_t temp_prof[2][10] = {
     { 320, 100, 100, 100, 200, 200, 200, 320, 320, 320 },
@@ -32,26 +37,30 @@ sps30_t sps30;
 bool sps30_init_done = false;
 #endif
 
-typedef struct {
+typedef struct __attribute__((packed)) {
     int32_t vcc;
     int32_t vpanel;
 #ifdef MODULE_BME68X
-    double temperature[2];
-    double pressure[2];
-    double humidity[2];
-    double gas_resistance[2][10];
+    BME68X_TYPE temperature[2];
+    BME68X_TYPE pressure[2];
+    BME68X_TYPE humidity[2];
+    BME68X_TYPE gas_resistance[2][10];
 #endif
 #ifdef MODULE_SPS30
-//  float mc_pm1;
-//  float mc_pm2_5;
-//  float mc_pm4;
+#ifndef MODULE_BME68X_FP
+    float mc_pm1;
+    float mc_pm2_5;
+    float mc_pm4;
+#endif
     float mc_pm10;
-//  float nc_pm0_5;
-//  float nc_pm1;
-//  float nc_pm2_5;
-//  float nc_pm4;
-//  float nc_pm10;
-//  float ps;
+#ifndef MODULE_BME68X_FP
+    float nc_pm0_5;
+    float nc_pm1;
+    float nc_pm2_5;
+    float nc_pm4;
+    float nc_pm10;
+    float ps;
+#endif
 #endif
 } sensors_data_t;
 static sensors_data_t sensor_data;
@@ -143,7 +152,11 @@ void *read_bme68x_thread(void *arg) {
             }
             for(int n=0; n < n_fields; n++) {
                 DEBUG(
+#ifdef MODULE_BME68X_FP
                     "BME68X[%d].%d idx=%d, temp=%.2f, press=%.2f, hum=%.2f, gas=%.2f, status=0x%02x\n",
+#else
+                    "BME68X[%d].%d idx=%d, temp=%d, press=%ld, hum=%ld, gas=%ld, status=0x%02x\n",
+#endif
                     i, sample_count, data[n].gas_index, data[n].temperature, data[n].pressure, data[n].humidity,
                     data[n].gas_resistance, data[n].status
                 );
@@ -191,16 +204,20 @@ puts("@");
             }
             res = sps30_read_measurement(&sps30, &data);
             if (res == SPS30_OK) {
-//              sensor_data.mc_pm1 = data.mc_pm1;
-//              sensor_data.mc_pm2_5 = data.mc_pm2_5;
-//              sensor_data.mc_pm4 = data.mc_pm4;
+#ifndef MODULE_BME68X_FP
+                sensor_data.mc_pm1 = data.mc_pm1;
+                sensor_data.mc_pm2_5 = data.mc_pm2_5;
+                sensor_data.mc_pm4 = data.mc_pm4;
+#endif
                 sensor_data.mc_pm10 = data.mc_pm10;
-//              sensor_data.nc_pm0_5 = data.nc_pm0_5;
-//              sensor_data.nc_pm1 = data.nc_pm1;
-//              sensor_data.nc_pm2_5 = data.nc_pm2_5;
-//              sensor_data.nc_pm4 = data.nc_pm4;
-//              sensor_data.nc_pm10 = data.nc_pm10;
-//              sensor_data.ps = data.ps;
+#ifndef MODULE_BME68X_FP
+                sensor_data.nc_pm0_5 = data.nc_pm0_5;
+                sensor_data.nc_pm1 = data.nc_pm1;
+                sensor_data.nc_pm2_5 = data.nc_pm2_5;
+                sensor_data.nc_pm4 = data.nc_pm4;
+                sensor_data.nc_pm10 = data.nc_pm10;
+                sensor_data.ps = data.ps;
+#endif
                 puts("\nv==== SPS30 measurements ====v");
                 _sps30_print_val_row("MC PM",  "1.0", "[µg/m³]", data.mc_pm1);
                 _sps30_print_val_row("MC PM",  "2.5", "[µg/m³]", data.mc_pm2_5);

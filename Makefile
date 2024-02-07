@@ -51,6 +51,7 @@ USEMODULE += printf_float
 SENSEAIR_PORT ?=
 SPS30_PORT ?= 1
 BME68X_PORT ?= 2
+BME68X_FP ?= 0
 
 ifneq (, $(SENSEAIR_PORT))
   USEMODULE += senseair
@@ -72,7 +73,10 @@ ifneq (,$(SPS30_PORT))
 endif
 
 ifneq (,$(BME68X_PORT))
-  USEMODULE += bme68x bme68x_i2c bme68x_fp
+  USEMODULE += bme68x bme68x_i2c
+  ifeq ($(BME68X_FP),1)
+    USEMODULE += bme68x_fp
+  endif
   CFLAGS += -DACME$(BME68X_PORT)_BUS_MODE=MODE_I2C -DBME68X_POWER_PIN=ACME$(BME68X_PORT)_POWER_PIN
   SENSOR1 := "{.ifsel=BME68X_I2C_INTF,.intf.i2c.dev=ACME$(BME68X_PORT)_I2C_DEV,.intf.i2c.addr=BME68X_I2C_ADDR_1}"
   SENSOR2 := "{.ifsel=BME68X_I2C_INTF,.intf.i2c.dev=ACME$(BME68X_PORT)_I2C_DEV,.intf.i2c.addr=BME68X_I2C_ADDR_2}"
