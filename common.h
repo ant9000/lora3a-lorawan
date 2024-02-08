@@ -50,4 +50,5 @@ int deinit_sensors(void);
 void restore_loramac(void);
 int send_message(uint8_t *buffer, size_t len);
 
+int heatshrink_compress(const uint8_t *input, size_t input_len, uint8_t *output, size_t output_len);
 #endif

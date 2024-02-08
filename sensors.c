@@ -41,26 +41,30 @@ typedef struct __attribute__((packed)) {
     int32_t vcc;
     int32_t vpanel;
 #ifdef MODULE_BME68X
-    BME68X_TYPE temperature[2];
+#ifdef MODULE_BME68X_FP
+    double temperature[2];
+#else
+    int16_t temperature[2];
+#endif
     BME68X_TYPE pressure[2];
     BME68X_TYPE humidity[2];
     BME68X_TYPE gas_resistance[2][10];
 #endif
 #ifdef MODULE_SPS30
-#ifndef MODULE_BME68X_FP
+//#ifndef MODULE_BME68X_FP
     float mc_pm1;
     float mc_pm2_5;
     float mc_pm4;
-#endif
+//#endif
     float mc_pm10;
-#ifndef MODULE_BME68X_FP
+//#ifndef MODULE_BME68X_FP
     float nc_pm0_5;
     float nc_pm1;
     float nc_pm2_5;
     float nc_pm4;
     float nc_pm10;
     float ps;
-#endif
+//#endif
 #endif
 } sensors_data_t;
 static sensors_data_t sensor_data;
@@ -297,8 +301,27 @@ int read_sensors(uint8_t *msg, size_t len) {
             ztimer_sleep(ZTIMER_MSEC, 5);
         }
     } while (pending > 0);
-    size_t n = sizeof(sensor_data);
-    assert(n < len);
-    memcpy(msg, &sensor_data, n);
-    return n;
+
+    msg[0] = 0;
+#ifdef MODULE_BME68X
+    msg[0] |= (BME68X_NUMOF & 0x03) << 0; // number of bme68x sensors (2 bits)
+#ifdef MODULE_BME68X_FP
+    msg[0] |= 1 << 2; // floating point?
+#endif
+#endif
+#ifdef MODULE_SPS30
+    msg[0] |= 1 << 3;         // sps30
+#endif
+    uint8_t compressed[256];
+    size_t N = sizeof(sensor_data);
+    size_t n = heatshrink_compress((uint8_t *)&sensor_data, N, compressed, sizeof(compressed));
+printf("Sizes: max = %d, sensor data = %d, compressed data = %d\n", len, N, n);
+    if (n > 0 && n < len) {
+        msg[0] |= 1 << 4; // compressed
+        memcpy(msg + 1, compressed, n);
+    } else {
+        n = (N < len - 1) ? N : len - 1; // truncating is better than failure
+        memcpy(msg + 1, &sensor_data, n);
+    }
+    return n + 1;
 }
