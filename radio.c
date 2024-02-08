@@ -3,7 +3,6 @@
 void restore_loramac(void) {
     /* read lorawan from FRAM */
     gnrc_netif_lorawan_t lorawan;
-    fram_init();
     fram_read(LORAMAC_OFFSET, &lorawan, sizeof(lorawan));
     if (memcmp(lorawan.deveui, null_deveui, sizeof(null_deveui)) != 0) {
         puts("Found LoRaWAN params in FRAM, restoring");
@@ -27,9 +26,6 @@ void restore_loramac(void) {
         netif->lorawan.port = lorawan.port;
         netif->lorawan.ack_req = lorawan.ack_req;
         netif->lorawan.otaa = lorawan.otaa;
-
-        memset(&lorawan, 0, sizeof(lorawan));
-        fram_write(LORAMAC_OFFSET, (uint8_t *)&lorawan, sizeof(lorawan));
 
         mlme_confirm_t confirm;
         confirm.type = MLME_JOIN;

@@ -26,6 +26,8 @@ int main(void)
         enter_shell = 1;
     }
 
+    fram_init();
+
     /* Receive LoRaWAN packets in GNRC pktdump */
     gnrc_netreg_entry_t dump = GNRC_NETREG_ENTRY_INIT_PID(GNRC_NETREG_DEMUX_CTX_ALL,
                                                           gnrc_pktdump_pid);
@@ -33,21 +35,27 @@ int main(void)
 
     netif_t *iface = netif_get_by_name("3");
     netif = container_of(iface, gnrc_netif_t, netif);
-    restore_loramac();
-    if (memcmp(netif->lorawan.deveui, null_deveui, sizeof(null_deveui)) != 0) {
-        if (netif->lorawan.mac.mlme.activation == MLME_ACTIVATION_NONE) {
-            puts("Trying to join LoRaWAN network");
-            netopt_enable_t en = NETOPT_ENABLE;
-            if (netif_set_opt(iface, NETOPT_LINK, 0, &en, sizeof(en)) < 0) {
-                puts("ERROR: unable to set link up");
-                enter_shell = 1;
-            } else {
-                // TODO: optimize wait time
-                ztimer_sleep(ZTIMER_MSEC, 2000);
+    uint8_t value = CONFIG_LORAMAC_DEFAULT_DR;
+    if (netif_set_opt(iface, NETOPT_LORAWAN_DR, 0, &value, sizeof(value)) != 0) {
+        puts("WARNING: cannot set datarate");
+    }
+    if (!enter_shell) {
+        restore_loramac();
+        if (memcmp(netif->lorawan.deveui, null_deveui, sizeof(null_deveui)) != 0) {
+            if (netif->lorawan.mac.mlme.activation == MLME_ACTIVATION_NONE) {
+                puts("Trying to join LoRaWAN network");
+                netopt_enable_t en = NETOPT_ENABLE;
+                if (netif_set_opt(iface, NETOPT_LINK, 0, &en, sizeof(en)) < 0) {
+                    puts("ERROR: unable to set link up");
+                    enter_shell = 1;
+                } else {
+                    // TODO: optimize wait time
+                    ztimer_sleep(ZTIMER_MSEC, 2000);
+                }
             }
+        } else {
+            enter_shell = 1;
         }
-    } else {
-        enter_shell = 1;
     }
 
     if (enter_shell) {
