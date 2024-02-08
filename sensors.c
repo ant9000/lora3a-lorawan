@@ -51,20 +51,16 @@ typedef struct __attribute__((packed)) {
     BME68X_TYPE gas_resistance[2][10];
 #endif
 #ifdef MODULE_SPS30
-//#ifndef MODULE_BME68X_FP
     float mc_pm1;
     float mc_pm2_5;
     float mc_pm4;
-//#endif
     float mc_pm10;
-//#ifndef MODULE_BME68X_FP
     float nc_pm0_5;
     float nc_pm1;
     float nc_pm2_5;
     float nc_pm4;
     float nc_pm10;
     float ps;
-//#endif
 #endif
 } sensors_data_t;
 static sensors_data_t sensor_data;
