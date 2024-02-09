@@ -37,6 +37,7 @@
 extern gnrc_netif_t *netif;
 extern uint8_t null_deveui[8];
 
+int loramac_restore(int argc, char **argv);
 int loramac_save(int argc, char **argv);
 int loramac_erase(int argc, char **argv);
 int loramac_dump(int argc, char **argv);

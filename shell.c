@@ -1,5 +1,14 @@
 #include "common.h"
 
+int loramac_restore(int argc, char **argv)
+{
+    (void)argc;
+    (void)argv;
+    restore_loramac();
+    puts("LoRaWAN MAC parameters restored");
+    return 0;
+}
+
 int loramac_save(int argc, char **argv)
 {
     (void)argc;

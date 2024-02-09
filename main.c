@@ -6,12 +6,13 @@ static uint8_t msg[222];
 
 static const shell_command_t shell_commands[] =
 {
-    { "cpuid",          "print CPU ID",                       cpuid_cmd     },
-    { "loramac_save",   "save LoRaWAN MAC params to FRAM",    loramac_save  },
-    { "loramac_erase",  "erase LoRaWAN MAC params from FRAM", loramac_erase },
-    { "loramac_dump",   "dump LoRaWAN MAC params from FRAM",  loramac_dump  },
-    { "sleep",          "enter deep sleep",                   sleep_cmd     },
-    { NULL,             NULL,                                 NULL          }
+    { "cpuid",          "print CPU ID",                         cpuid_cmd       },
+    { "loramac_restore","restore LoRaWAN MAC params from FRAM", loramac_restore },
+    { "loramac_save",   "save LoRaWAN MAC params to FRAM",      loramac_save    },
+    { "loramac_erase",  "erase LoRaWAN MAC params from FRAM",   loramac_erase   },
+    { "loramac_dump",   "dump LoRaWAN MAC params from FRAM",    loramac_dump    },
+    { "sleep",          "enter deep sleep",                     sleep_cmd       },
+    { NULL,             NULL,                                   NULL            }
 };
 
 int main(void)
@@ -35,10 +36,6 @@ int main(void)
 
     netif_t *iface = netif_get_by_name("3");
     netif = container_of(iface, gnrc_netif_t, netif);
-    uint8_t value = CONFIG_LORAMAC_DEFAULT_DR;
-    if (netif_set_opt(iface, NETOPT_LORAWAN_DR, 0, &value, sizeof(value)) != 0) {
-        puts("WARNING: cannot set datarate");
-    }
     if (!enter_shell) {
         restore_loramac();
         if (memcmp(netif->lorawan.deveui, null_deveui, sizeof(null_deveui)) != 0) {
