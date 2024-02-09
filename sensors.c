@@ -312,7 +312,7 @@ int read_sensors(uint8_t *msg, size_t len) {
     size_t N = sizeof(sensor_data);
     size_t n = heatshrink_compress((uint8_t *)&sensor_data, N, compressed, sizeof(compressed));
 printf("Sizes: max = %d, sensor data = %d, compressed data = %d\n", len, N, n);
-    if (n > 0 && n < len) {
+    if (n > 0 && n < len && n < N) {
         msg[0] |= 1 << 4; // compressed
         memcpy(msg + 1, compressed, n);
     } else {
