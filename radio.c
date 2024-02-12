@@ -1,6 +1,22 @@
 #include "common.h"
 
-void restore_loramac(void) {
+static gnrc_netif_t *netif = NULL;
+
+gnrc_netif_t *radio_init(void) {
+    /* Receive LoRaWAN packets in GNRC pktdump */
+    gnrc_netreg_entry_t dump = GNRC_NETREG_ENTRY_INIT_PID(GNRC_NETREG_DEMUX_CTX_ALL, gnrc_pktdump_pid);
+    gnrc_netreg_register(GNRC_NETTYPE_UNDEF, &dump);
+    netif_t *iface = netif_iter(NULL);
+    netif = container_of(iface, gnrc_netif_t, netif);
+    return netif;
+}
+
+void save_loramac(void) {
+    fram_write(LORAMAC_OFFSET, (uint8_t *)&netif->lorawan, sizeof(netif->lorawan));
+}
+
+int restore_loramac(void) {
+    uint8_t null_deveui[8] = {0,0,0,0,0,0,0,0};
     /* read lorawan from FRAM */
     gnrc_netif_lorawan_t lorawan;
     fram_read(LORAMAC_OFFSET, &lorawan, sizeof(lorawan));
@@ -32,6 +48,7 @@ void restore_loramac(void) {
         confirm.status = GNRC_LORAWAN_REQ_STATUS_SUCCESS;
         gnrc_lorawan_mlme_confirm(&netif->lorawan.mac, &confirm);
     }
+    return (memcmp(netif->lorawan.deveui, null_deveui, sizeof(null_deveui)) != 0);
 }
 
 int send_message(uint8_t *buffer, size_t len) {

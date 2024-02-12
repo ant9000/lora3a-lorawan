@@ -1,7 +1,5 @@
 #include "common.h"
 
-gnrc_netif_t *netif;
-uint8_t null_deveui[8] = {0,0,0,0,0,0,0,0};
 static uint8_t msg[222];
 
 static const shell_command_t shell_commands[] =
@@ -29,20 +27,13 @@ int main(void)
 
     fram_init();
 
-    /* Receive LoRaWAN packets in GNRC pktdump */
-    gnrc_netreg_entry_t dump = GNRC_NETREG_ENTRY_INIT_PID(GNRC_NETREG_DEMUX_CTX_ALL,
-                                                          gnrc_pktdump_pid);
-    gnrc_netreg_register(GNRC_NETTYPE_UNDEF, &dump);
-
-    netif_t *iface = netif_iter(NULL);
-    netif = container_of(iface, gnrc_netif_t, netif);
+    gnrc_netif_t *netif = radio_init();
     if (!enter_shell) {
-        restore_loramac();
-        if (memcmp(netif->lorawan.deveui, null_deveui, sizeof(null_deveui)) != 0) {
+        if (restore_loramac()) {
             if (netif->lorawan.mac.mlme.activation == MLME_ACTIVATION_NONE) {
                 puts("Trying to join LoRaWAN network");
                 netopt_enable_t en = NETOPT_ENABLE;
-                if (netif_set_opt(iface, NETOPT_LINK, 0, &en, sizeof(en)) < 0) {
+                if (netif_set_opt(&netif->netif, NETOPT_LINK, 0, &en, sizeof(en)) < 0) {
                     puts("ERROR: unable to set link up");
                     enter_shell = 1;
                 } else {
@@ -50,7 +41,7 @@ int main(void)
                     netopt_enable_t enabled;
                     ztimer_now_t start = ztimer_now(ZTIMER_MSEC), elapsed = start;
                     do {
-                        res = netif_get_opt(iface, NETOPT_LINK, 0, &enabled, sizeof(enabled));
+                        res = netif_get_opt(&netif->netif, NETOPT_LINK, 0, &enabled, sizeof(enabled));
                         if (res >=0 && enabled == NETOPT_ENABLE) {
                             break;
                         }
@@ -107,7 +98,7 @@ sleep:
         gpio_clear(ACME0_POWER_PIN);
 
         netopt_state_t state = NETOPT_STATE_SLEEP;
-        netif_set_opt(iface, NETOPT_STATE, 0, &state, sizeof(netopt_state_t));
+        netif_set_opt(&netif->netif, NETOPT_STATE, 0, &state, sizeof(netopt_state_t));
         gpio_clear(TCXO_PWR_PIN);
         gpio_clear(TX_OUTPUT_SEL_PIN);
         saml21_extwake_t extwake = { .pin=EXTWAKE_PIN6, .polarity=EXTWAKE_HIGH, .flags=EXTWAKE_IN_PU };
