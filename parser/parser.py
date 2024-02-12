@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 
-import fileinput, heatshrink2, base64, struct
+import fileinput, time, base64, heatshrink2, struct
 
 for n, line in enumerate(fileinput.input()):
     print("#### RECORD %d ####" % n)
+    print("[%s]" % time.strftime("%Y-%m-%d %H:%M:%S"))
     try:
         data = base64.b64decode(line.strip())
         hdr = data[0]
