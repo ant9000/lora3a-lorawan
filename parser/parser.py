@@ -5,8 +5,12 @@ import fileinput, time, base64, heatshrink2, struct
 for n, line in enumerate(fileinput.input()):
     print("#### RECORD %d ####" % n)
     print("[%s]" % time.strftime("%Y-%m-%d %H:%M:%S"))
+    line = line.strip()
+    print("Line: '%s'" % line)
+    if not len(line):
+        continue
     try:
-        data = base64.b64decode(line.strip())
+        data = base64.b64decode(line)
         hdr = data[0]
         data = data[1:]
         bme68x_num = (hdr & 0x03)
