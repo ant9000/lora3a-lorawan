@@ -35,14 +35,11 @@ void restore_loramac(void) {
 }
 
 int send_message(uint8_t *buffer, size_t len) {
-    uint8_t addr[GNRC_NETIF_L2ADDR_MAXLEN];
-    size_t addr_len;
     gnrc_pktsnip_t *pkt, *hdr;
     gnrc_netif_hdr_t *nethdr;
     uint8_t flags = 0x00;
 
-    /* parse address */
-    addr_len = gnrc_netif_addr_from_str("42", addr);
+    uint8_t port = CONFIG_LORAMAC_DEFAULT_TX_PORT;
 
     /* put packet together */
     pkt = gnrc_pktbuf_add(NULL, buffer, len, GNRC_NETTYPE_UNDEF);
@@ -50,7 +47,7 @@ int send_message(uint8_t *buffer, size_t len) {
         printf("error: packet buffer full\n");
         return 1;
     }
-    hdr = gnrc_netif_hdr_build(NULL, 0, addr, addr_len);
+    hdr = gnrc_netif_hdr_build(NULL, 0, &port, sizeof(port));
     if (hdr == NULL) {
         printf("error: packet buffer full\n");
         gnrc_pktbuf_release(pkt);

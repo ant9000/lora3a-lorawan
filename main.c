@@ -34,7 +34,7 @@ int main(void)
                                                           gnrc_pktdump_pid);
     gnrc_netreg_register(GNRC_NETTYPE_UNDEF, &dump);
 
-    netif_t *iface = netif_get_by_name("3");
+    netif_t *iface = netif_iter(NULL);
     netif = container_of(iface, gnrc_netif_t, netif);
     if (!enter_shell) {
         restore_loramac();
