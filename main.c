@@ -90,7 +90,7 @@ int main(void)
             od_hex_dump(msg, len, 0);
             if (send_message(msg, len) == 0) {
                 puts("Packet sent, now waiting for RX windows.");
-                ztimer_sleep(ZTIMER_MSEC, LORAMAC_DEFAULT_RX2_DELAY + 1000);
+                ztimer_sleep(ZTIMER_MSEC, LORAMAC_DEFAULT_RX2_DELAY + 1500);
             } else {
                 puts("Error sending message.");
             }
