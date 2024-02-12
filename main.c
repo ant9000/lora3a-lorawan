@@ -46,8 +46,26 @@ int main(void)
                     puts("ERROR: unable to set link up");
                     enter_shell = 1;
                 } else {
-                    // TODO: optimize wait time
-                    ztimer_sleep(ZTIMER_MSEC, 2000);
+                    int res;
+                    netopt_enable_t enabled;
+                    ztimer_now_t start = ztimer_now(ZTIMER_MSEC), elapsed = start;
+                    do {
+                        res = netif_get_opt(iface, NETOPT_LINK, 0, &enabled, sizeof(enabled));
+                        if (res >=0 && enabled == NETOPT_ENABLE) {
+                            break;
+                        }
+                        ztimer_sleep(ZTIMER_MSEC, 100);
+                        elapsed = ztimer_now(ZTIMER_MSEC) - start;
+                    } while (elapsed < (CONFIG_LORAMAC_DEFAULT_JOIN_DELAY2 + 1) * 1000);
+                    if (enabled == NETOPT_ENABLE) {
+                        printf("Join successful in %lu msec.\n", elapsed);
+                    } else if (elapsed >= (CONFIG_LORAMAC_DEFAULT_JOIN_DELAY2 + 1) * 1000) {
+                        printf("Join timed out after %lu msec.\n", elapsed);
+                        goto sleep;
+                    } else {
+                        puts("Join failed: check network parameters.\n");
+                        enter_shell = 1;
+                    }
                 }
             }
         } else {
@@ -72,8 +90,7 @@ int main(void)
             od_hex_dump(msg, len, 0);
             if (send_message(msg, len) == 0) {
                 puts("Packet sent, now waiting for RX windows.");
-                // TODO: optimize wait time
-                ztimer_sleep(ZTIMER_MSEC, 5000);
+                ztimer_sleep(ZTIMER_MSEC, LORAMAC_DEFAULT_RX2_DELAY + 1000);
             } else {
                 puts("Error sending message.");
             }
@@ -81,6 +98,7 @@ int main(void)
             puts("Error reading sensors.");
         }
 
+sleep:
         // enter deep sleep
         puts("Sleeping...");
         int sleep_secs = 30;
