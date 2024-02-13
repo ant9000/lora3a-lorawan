@@ -6,6 +6,7 @@
 
 static gnrc_netif_t *netif = NULL;
 static kernel_pid_t radio_pid = KERNEL_PID_UNDEF;
+static gnrc_netreg_entry_t entry;
 static char _stack[THREAD_STACKSIZE_MAIN];
 static msg_t _msg_queue[8];
 
@@ -15,8 +16,8 @@ static void _dump_snip(gnrc_pktsnip_t *pkt);
 
 gnrc_netif_t *radio_init(void) {
     radio_pid = thread_create(_stack, sizeof(_stack), THREAD_PRIORITY_MAIN - 1, THREAD_CREATE_STACKTEST, _eventloop, NULL, "radio");
-    gnrc_netreg_entry_t dump = GNRC_NETREG_ENTRY_INIT_PID(GNRC_NETREG_DEMUX_CTX_ALL, radio_pid);
-    gnrc_netreg_register(GNRC_NETTYPE_UNDEF, &dump);
+    gnrc_netreg_entry_init_pid(&entry, GNRC_NETREG_DEMUX_CTX_ALL, radio_pid);
+    gnrc_netreg_register(GNRC_NETTYPE_UNDEF, &entry);
     netif_t *iface = netif_iter(NULL);
     netif = container_of(iface, gnrc_netif_t, netif);
     return netif;
