@@ -1,10 +1,21 @@
 #include "common.h"
 
+#include "thread.h"
+#include "msg.h"
+#include "net/gnrc.h"
+
 static gnrc_netif_t *netif = NULL;
+static kernel_pid_t radio_pid = KERNEL_PID_UNDEF;
+static char _stack[THREAD_STACKSIZE_MAIN];
+static msg_t _msg_queue[8];
+
+static void *_eventloop(void *arg);
+static void _dump(gnrc_pktsnip_t *pkt);
+static void _dump_snip(gnrc_pktsnip_t *pkt);
 
 gnrc_netif_t *radio_init(void) {
-    /* Receive LoRaWAN packets in GNRC pktdump */
-    gnrc_netreg_entry_t dump = GNRC_NETREG_ENTRY_INIT_PID(GNRC_NETREG_DEMUX_CTX_ALL, gnrc_pktdump_pid);
+    radio_pid = thread_create(_stack, sizeof(_stack), THREAD_PRIORITY_MAIN - 1, THREAD_CREATE_STACKTEST, _eventloop, NULL, "radio");
+    gnrc_netreg_entry_t dump = GNRC_NETREG_ENTRY_INIT_PID(GNRC_NETREG_DEMUX_CTX_ALL, radio_pid);
     gnrc_netreg_register(GNRC_NETTYPE_UNDEF, &dump);
     netif_t *iface = netif_iter(NULL);
     netif = container_of(iface, gnrc_netif_t, netif);
@@ -86,4 +97,89 @@ int send_message(uint8_t *buffer, size_t len) {
     }
 
     return 0;
+}
+
+static void *_eventloop(void *arg)
+{
+    (void)arg;
+    msg_t msg, reply;
+
+    /* setup the message queue */
+    msg_init_queue(_msg_queue, ARRAY_SIZE(_msg_queue));
+
+    reply.content.value = (uint32_t)(-ENOTSUP);
+    reply.type = GNRC_NETAPI_MSG_TYPE_ACK;
+
+    while (1) {
+        msg_receive(&msg);
+
+        switch (msg.type) {
+            case GNRC_NETAPI_MSG_TYPE_RCV:
+                puts("PKTDUMP: data received:");
+                _dump(msg.content.ptr);
+                break;
+            case GNRC_NETAPI_MSG_TYPE_SND:
+                puts("PKTDUMP: data to send:");
+                _dump(msg.content.ptr);
+                break;
+            case GNRC_NETAPI_MSG_TYPE_GET:
+            case GNRC_NETAPI_MSG_TYPE_SET:
+                msg_reply(&msg, &reply);
+                break;
+            default:
+                puts("PKTDUMP: received something unexpected");
+                break;
+        }
+    }
+
+    /* never reached */
+    return NULL;
+}
+
+static void _dump(gnrc_pktsnip_t *pkt)
+{
+    int snips = 0;
+    int size = 0;
+    gnrc_pktsnip_t *snip = pkt;
+
+    while (snip != NULL) {
+        printf("~~ SNIP %2i - size: %3" PRIuSIZE " byte, type: ", snips,
+               snip->size);
+        _dump_snip(snip);
+        ++snips;
+        size += snip->size;
+        snip = snip->next;
+    }
+
+    printf("~~ PKT    - %2i snips, total size: %3i byte\n", snips, size);
+    gnrc_pktbuf_release(pkt);
+}
+
+static void _dump_snip(gnrc_pktsnip_t *pkt)
+{
+    size_t hdr_len = 0;
+
+    switch (pkt->type) {
+    case GNRC_NETTYPE_NETIF:
+        printf("NETTYPE_NETIF (%i)\n", pkt->type);
+        if (IS_USED(MODULE_GNRC_NETIF_HDR)) {
+            gnrc_netif_hdr_print(pkt->data);
+            hdr_len = pkt->size;
+        }
+        break;
+    case GNRC_NETTYPE_UNDEF:
+        printf("NETTYPE_UNDEF (%i)\n", pkt->type);
+        break;
+    case GNRC_NETTYPE_LORAWAN:
+            printf("NETTYPE_LORAWAN (%i)\n", pkt->type);
+        break;
+    default:
+        printf("NETTYPE_UNKNOWN (%i)\n", pkt->type);
+        break;
+    }
+    if (hdr_len < pkt->size) {
+        size_t size = pkt->size - hdr_len;
+
+        od_hex_dump(((uint8_t *)pkt->data) + hdr_len, size, OD_WIDTH_DEFAULT);
+    }
 }
