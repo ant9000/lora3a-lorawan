@@ -54,10 +54,10 @@ int main(void)
                         }
                         ztimer_sleep(ZTIMER_MSEC, 100);
                         elapsed = ztimer_now(ZTIMER_MSEC) - start;
-                    } while (elapsed < (CONFIG_LORAMAC_DEFAULT_JOIN_DELAY2 + 1) * 1000);
+                    } while (elapsed < (CONFIG_LORAMAC_DEFAULT_JOIN_DELAY2 * 1000 + 1500));
                     if (enabled == NETOPT_ENABLE) {
                         printf("Join successful in %lu msec.\n", elapsed);
-                    } else if (elapsed >= (CONFIG_LORAMAC_DEFAULT_JOIN_DELAY2 + 1) * 1000) {
+                    } else if (elapsed >= (CONFIG_LORAMAC_DEFAULT_JOIN_DELAY2 * 1000 + 1500)) {
                         printf("Join timed out after %lu msec.\n", elapsed);
                         goto sleep;
                     } else {
