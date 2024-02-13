@@ -13,6 +13,13 @@ static const shell_command_t shell_commands[] =
     { NULL,             NULL,                                   NULL            }
 };
 
+void packet_received(uint8_t fport, const uint8_t *payload, size_t size) {
+    puts("PACKET CALLBACK:");
+    printf("fport: %d\n", fport);
+    puts("payload:");
+    od_hex_dump(payload, size, OD_WIDTH_DEFAULT);
+}
+
 int main(void)
 {
     int enter_shell = 0;
@@ -27,7 +34,7 @@ int main(void)
 
     fram_init();
 
-    gnrc_netif_t *netif = radio_init();
+    gnrc_netif_t *netif = radio_init(packet_received);
     if (!enter_shell) {
         if (restore_loramac()) {
             if (netif->lorawan.mac.mlme.activation == MLME_ACTIVATION_NONE) {

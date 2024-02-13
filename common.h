@@ -45,7 +45,8 @@ int init_sensors(void);
 int read_sensors(uint8_t *msg, size_t len);
 int deinit_sensors(void);
 
-gnrc_netif_t *radio_init(void);
+typedef void (*radio_cb_t)(uint8_t fport, const uint8_t *payload, size_t size);
+gnrc_netif_t *radio_init(radio_cb_t cb);
 int restore_loramac(void);
 void save_loramac(void);
 int send_message(uint8_t *buffer, size_t len);

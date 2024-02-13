@@ -9,16 +9,18 @@ static kernel_pid_t radio_pid = KERNEL_PID_UNDEF;
 static gnrc_netreg_entry_t entry;
 static char _stack[THREAD_STACKSIZE_MAIN];
 static msg_t _msg_queue[8];
+static radio_cb_t radio_cb = NULL;
 
 static void *_eventloop(void *arg);
-static void _dump(gnrc_pktsnip_t *pkt);
+static void _parse(gnrc_pktsnip_t *pkt);
 
-gnrc_netif_t *radio_init(void) {
+gnrc_netif_t *radio_init(radio_cb_t cb) {
     radio_pid = thread_create(_stack, sizeof(_stack), THREAD_PRIORITY_MAIN - 1, THREAD_CREATE_STACKTEST, _eventloop, NULL, "radio");
     gnrc_netreg_entry_init_pid(&entry, GNRC_NETREG_DEMUX_CTX_ALL, radio_pid);
     gnrc_netreg_register(GNRC_NETTYPE_UNDEF, &entry);
     netif_t *iface = netif_iter(NULL);
     netif = container_of(iface, gnrc_netif_t, netif);
+    radio_cb = cb;
     return netif;
 }
 
@@ -115,8 +117,7 @@ static void *_eventloop(void *arg)
 
         switch (msg.type) {
             case GNRC_NETAPI_MSG_TYPE_RCV:
-                puts("PKTDUMP: data received:");
-                _dump(msg.content.ptr);
+                _parse(msg.content.ptr);
                 break;
             case GNRC_NETAPI_MSG_TYPE_GET:
             case GNRC_NETAPI_MSG_TYPE_SET:
@@ -131,26 +132,34 @@ static void *_eventloop(void *arg)
     return NULL;
 }
 
-static void _dump(gnrc_pktsnip_t *pkt)
+static void _parse(gnrc_pktsnip_t *pkt)
 {
     int snips = 0;
     int size = 0;
+    uint8_t fport = 0;
+    uint8_t *payload = NULL;
+    size_t payload_size = 0;
     gnrc_pktsnip_t *snip = pkt;
-
     while (snip != NULL) {
-        printf("~~ SNIP %2i - size: %3" PRIuSIZE " byte, type: ", snips, snip->size);
         if (snip->type == GNRC_NETTYPE_NETIF) {
-            printf("NETTYPE_NETIF (%i)\n", snip->type);
-            gnrc_netif_hdr_print(snip->data);
+            gnrc_netif_hdr_t *hdr = snip->data;
+            fport = *gnrc_netif_hdr_get_dst_addr(hdr);
         } else if (snip->type == GNRC_NETTYPE_UNDEF) {
-            printf("NETTYPE_UNDEF (%i)\n", snip->type);
-            od_hex_dump(((uint8_t *)snip->data), snip->size, OD_WIDTH_DEFAULT);
+            payload = (uint8_t *)snip->data;
+            payload_size = snip->size;
         }
         ++snips;
         size += snip->size;
         snip = snip->next;
     }
 
-    printf("~~ PKT    - %2i snips, total size: %3i byte\n", snips, size);
+    if (radio_cb) {
+        radio_cb(fport, payload, payload_size);
+    } else {
+        puts("PKTDUMP: packet received");
+        printf("fport: %d\n", fport);
+        puts("payload:");
+        od_hex_dump(payload, size, OD_WIDTH_DEFAULT);
+    }
     gnrc_pktbuf_release(pkt);
 }
