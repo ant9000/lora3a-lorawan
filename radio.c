@@ -12,7 +12,6 @@ static msg_t _msg_queue[8];
 
 static void *_eventloop(void *arg);
 static void _dump(gnrc_pktsnip_t *pkt);
-static void _dump_snip(gnrc_pktsnip_t *pkt);
 
 gnrc_netif_t *radio_init(void) {
     radio_pid = thread_create(_stack, sizeof(_stack), THREAD_PRIORITY_MAIN - 1, THREAD_CREATE_STACKTEST, _eventloop, NULL, "radio");
@@ -119,16 +118,11 @@ static void *_eventloop(void *arg)
                 puts("PKTDUMP: data received:");
                 _dump(msg.content.ptr);
                 break;
-            case GNRC_NETAPI_MSG_TYPE_SND:
-                puts("PKTDUMP: data to send:");
-                _dump(msg.content.ptr);
-                break;
             case GNRC_NETAPI_MSG_TYPE_GET:
             case GNRC_NETAPI_MSG_TYPE_SET:
                 msg_reply(&msg, &reply);
                 break;
             default:
-                puts("PKTDUMP: received something unexpected");
                 break;
         }
     }
@@ -144,9 +138,14 @@ static void _dump(gnrc_pktsnip_t *pkt)
     gnrc_pktsnip_t *snip = pkt;
 
     while (snip != NULL) {
-        printf("~~ SNIP %2i - size: %3" PRIuSIZE " byte, type: ", snips,
-               snip->size);
-        _dump_snip(snip);
+        printf("~~ SNIP %2i - size: %3" PRIuSIZE " byte, type: ", snips, snip->size);
+        if (snip->type == GNRC_NETTYPE_NETIF) {
+            printf("NETTYPE_NETIF (%i)\n", snip->type);
+            gnrc_netif_hdr_print(snip->data);
+        } else if (snip->type == GNRC_NETTYPE_UNDEF) {
+            printf("NETTYPE_UNDEF (%i)\n", snip->type);
+            od_hex_dump(((uint8_t *)snip->data), snip->size, OD_WIDTH_DEFAULT);
+        }
         ++snips;
         size += snip->size;
         snip = snip->next;
@@ -154,33 +153,4 @@ static void _dump(gnrc_pktsnip_t *pkt)
 
     printf("~~ PKT    - %2i snips, total size: %3i byte\n", snips, size);
     gnrc_pktbuf_release(pkt);
-}
-
-static void _dump_snip(gnrc_pktsnip_t *pkt)
-{
-    size_t hdr_len = 0;
-
-    switch (pkt->type) {
-    case GNRC_NETTYPE_NETIF:
-        printf("NETTYPE_NETIF (%i)\n", pkt->type);
-        if (IS_USED(MODULE_GNRC_NETIF_HDR)) {
-            gnrc_netif_hdr_print(pkt->data);
-            hdr_len = pkt->size;
-        }
-        break;
-    case GNRC_NETTYPE_UNDEF:
-        printf("NETTYPE_UNDEF (%i)\n", pkt->type);
-        break;
-    case GNRC_NETTYPE_LORAWAN:
-            printf("NETTYPE_LORAWAN (%i)\n", pkt->type);
-        break;
-    default:
-        printf("NETTYPE_UNKNOWN (%i)\n", pkt->type);
-        break;
-    }
-    if (hdr_len < pkt->size) {
-        size_t size = pkt->size - hdr_len;
-
-        od_hex_dump(((uint8_t *)pkt->data) + hdr_len, size, OD_WIDTH_DEFAULT);
-    }
 }
