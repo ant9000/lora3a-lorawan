@@ -16,15 +16,11 @@ static bme68x_t bme68x[BME68X_NUMOF];
 #define BME68X_TYPE int32_t
 #endif
 /* Heater temperature in degree Celsius */
-static uint16_t temp_prof[2][10] = {
-    { 320, 100, 100, 100, 200, 200, 200, 320, 320, 320 },
-    { 320, 100, 100, 100, 200, 200, 200, 320, 320, 320 },
-};
+static uint16_t temp_prof[BME68X_NUMOF][BME68X_PROF_LEN] = { BME68X_TEMP_PROF };
 /* Heating duration in milliseconds */
-static uint16_t dur_prof[2][10] = {
-    { 700, 280, 1400, 4200, 700, 700, 700, 700, 700, 700 },
-    { 700, 280, 1400, 420, 700, 700, 700, 700, 700, 700 },
-};
+static uint16_t dur_prof[BME68X_NUMOF][BME68X_PROF_LEN] = { BME68X_DUR_PROF };
+#else
+#define BME68X_NUMOF 0
 #endif
 
 #ifdef MODULE_SPS30
@@ -35,6 +31,9 @@ static uint16_t dur_prof[2][10] = {
 #define SPS30_POLL_DELAY_MS     (1 * MS_PER_SEC)
 sps30_t sps30;
 bool sps30_init_done = false;
+#define SPS30_NUMOF 1
+#else
+#define SPS30_NUMOF 0
 #endif
 
 typedef struct __attribute__((packed)) {
@@ -42,13 +41,13 @@ typedef struct __attribute__((packed)) {
     int16_t vpanel;
 #ifdef MODULE_BME68X
 #ifdef MODULE_BME68X_FP
-    double temperature[2];
+    double temperature[BME68X_NUMOF];
 #else
-    int16_t temperature[2];
+    int16_t temperature[BME68X_NUMOF];
 #endif
-    BME68X_TYPE pressure[2];
-    BME68X_TYPE humidity[2];
-    BME68X_TYPE gas_resistance[2][10];
+    BME68X_TYPE pressure[BME68X_NUMOF];
+    BME68X_TYPE humidity[BME68X_NUMOF];
+    BME68X_TYPE gas_resistance[BME68X_NUMOF][BME68X_PROF_LEN];
 #endif
 #ifdef MODULE_SPS30
     float mc_pm1;
@@ -65,7 +64,9 @@ typedef struct __attribute__((packed)) {
 } sensors_data_t;
 static sensors_data_t sensor_data;
 
-char sensors_thread_stack[3][THREAD_STACKSIZE_MEDIUM];
+#if MODULE_BME68X + MODULE_SPS30
+char sensors_thread_stack[BME68X_NUMOF + SPS30_NUMOF][THREAD_STACKSIZE_MEDIUM];
+#endif
 
 int init_sensors(void) {
 #ifdef SPS30_POWER_PIN
@@ -284,19 +285,21 @@ int read_sensors(uint8_t *msg, size_t len) {
     }
 #endif
 
-    unsigned pending, counter = 0;
-    do {
-        pending = 0;
-        for (i=0; i<sensors; i++) {
-            pending += thread_getstatus(sensors_pid[i]) != STATUS_NOT_FOUND ? 1 : 0;
-        }
-        if (counter++ % 1000 == 0) {
-            ps();
-        }
-        if (pending) {
-            ztimer_sleep(ZTIMER_MSEC, 5);
-        }
-    } while (pending > 0);
+    if (sensors) {
+        unsigned pending, counter = 0;
+        do {
+            pending = 0;
+            for (i=0; i<sensors; i++) {
+                pending += thread_getstatus(sensors_pid[i]) != STATUS_NOT_FOUND ? 1 : 0;
+            }
+            if (counter++ % 1000 == 0) {
+                ps();
+            }
+            if (pending) {
+                ztimer_sleep(ZTIMER_MSEC, 5);
+            }
+        } while (pending > 0);
+    }
 
     msg[0] = 0;
 #ifdef MODULE_BME68X
