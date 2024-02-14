@@ -46,6 +46,8 @@ def parse_record(data):
     if sps30_num:
         fmt = "10f"
         sensors.sps30.append(Sps30(*struct.unpack_from(fmt, data, offset)))
+        offset += struct.calcsize(fmt)
+    assert offset == len(data), "ERROR: offset={}, len(data)={}".format(offset, len(data))
     output = Output(header, data, sensors)
     return output
 
@@ -61,9 +63,9 @@ if __name__ == "__main__":
             continue
         try:
             try:
-                data = base64.b64decode(line)
-            except:
                 data = bytes.fromhex(line)
+            except:
+                data = base64.b64decode(line)
             output = parse_record(data)
 
             print("BME68X:            ", output.header.bme68x_num)
