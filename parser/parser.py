@@ -68,11 +68,12 @@ if __name__ == "__main__":
                 data = base64.b64decode(line)
             output = parse_record(data)
 
+            print("Payload length:    ", len(data))
             print("BME68X:            ", output.header.bme68x_num)
             print("BME68X_FP:         ", output.header.bme68x_fp)
             print("SPS30:             ", output.header.sps30_num)
             print("Compressed payload:", output.header.is_compressed)
-            print("Length:            ",len(data))
+            print("Raw data length:   ", len(output.data))
             print("Raw data:", end="")
             for i, c in enumerate(output.data):
                 if i % 16 == 0:
