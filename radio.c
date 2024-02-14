@@ -87,10 +87,6 @@ int send_message(uint8_t *buffer, size_t len) {
     nethdr = (gnrc_netif_hdr_t *)hdr->data;
     nethdr->flags = flags;
 
-    /* set power */
-    uint16_t power = CONFIG_LORAMAC_DEFAULT_TX_POWER;
-    netif_set_opt(&netif->netif, NETOPT_TX_POWER, 0, &power, sizeof(power));
-
     /* and send it */
     if (gnrc_netif_send(netif, pkt) < 1) {
         printf("error: unable to send\n");
