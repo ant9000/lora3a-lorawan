@@ -41,7 +41,8 @@ def parse_record(data):
         gas = struct.unpack_from(fmt, data, offset)
         offset += struct.calcsize(fmt)
         for i in range(bme68x_num):
-            sensors.bme68x.append(Bme68x(temp[i], press[i], hum[i], gas[i:(i+10)]))
+            n = i * 10
+            sensors.bme68x.append(Bme68x(temp[i], press[i], hum[i], gas[n:(n+10)]))
     if sps30_num:
         fmt = "10f"
         sensors.sps30.append(Sps30(*struct.unpack_from(fmt, data, offset)))
