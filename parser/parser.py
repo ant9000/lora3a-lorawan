@@ -18,7 +18,7 @@ def parse_record(data):
     if is_compressed:
         data = heatshrink2.decompress(data, window_sz2=8, lookahead_sz2=4)
     offset = 0
-    fmt = "2i"
+    fmt = "2h"
     vcc, vpanel = struct.unpack_from(fmt, data, offset)
     offset += struct.calcsize(fmt)
     sensors = Sensors(vcc, vpanel, [], [])

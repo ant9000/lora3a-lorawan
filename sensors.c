@@ -38,8 +38,8 @@ bool sps30_init_done = false;
 #endif
 
 typedef struct __attribute__((packed)) {
-    int32_t vcc;
-    int32_t vpanel;
+    int16_t vcc;
+    int16_t vpanel;
 #ifdef MODULE_BME68X
 #ifdef MODULE_BME68X_FP
     double temperature[2];
@@ -254,8 +254,8 @@ int read_sensors(uint8_t *msg, size_t len) {
     int32_t vpanel_raw = adc_sample(1, ADC_RES_16BIT);
     sensor_data.vcc = (vcc_raw * 4 * 1000) >> 16; // rescaled vcc/4 to 1V=65535 counts
     sensor_data.vpanel = (vpanel_raw * (220 + 75) / 75 * 1000) >> 16; // adapted to real resistor partition factor (75k over 220k)
-    DEBUG("VCC: %ld, VCC rescaled: %ld\n", vcc_raw, sensor_data.vcc);
-    DEBUG("Vpanel: %ld, Vpanel rescaled: %ld\n", vpanel_raw, sensor_data.vpanel);
+    DEBUG("VCC: %ld, VCC rescaled: %d\n", vcc_raw, sensor_data.vcc);
+    DEBUG("Vpanel: %ld, Vpanel rescaled: %d\n", vpanel_raw, sensor_data.vpanel);
 
     kernel_pid_t sensors_pid[3];
     unsigned i, sensors = 0;
