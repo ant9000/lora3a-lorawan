@@ -60,7 +60,10 @@ if __name__ == "__main__":
         if not len(line):
             continue
         try:
-            data = base64.b64decode(line)
+            try:
+                data = base64.b64decode(line)
+            except:
+                data = bytes.fromhex(line)
             output = parse_record(data)
 
             print("BME68X:            ", output.header.bme68x_num)
