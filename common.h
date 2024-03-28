@@ -34,6 +34,10 @@
 
 #define LORAMAC_OFFSET  0
 
+#ifndef SLEEP_SECS
+#define SLEEP_SECS 60
+#endif
+
 int loramac_restore(int argc, char **argv);
 int loramac_save(int argc, char **argv);
 int loramac_erase(int argc, char **argv);

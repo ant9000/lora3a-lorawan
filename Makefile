@@ -61,11 +61,16 @@ endif
 
 USEMODULE += printf_float
 
+SLEEP_SECS ?= 60
 SENSEAIR_PORT ?=
 SPS30_PORT ?= 1
 BME68X_PORT ?= 2
 BME68X_FP ?= 0
 BME68X_NUMOF ?= 2
+
+ifneq (, $(SLEEP_SECS))
+  CFLAGS += -DSLEEP_SECS=$(SLEEP_SECS)
+endif
 
 ifneq (, $(SENSEAIR_PORT))
   USEMODULE += senseair

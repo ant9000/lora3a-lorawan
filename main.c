@@ -98,8 +98,8 @@ int main(void)
 
 sleep:
         // enter deep sleep
-        puts("Sleeping...");
-        int sleep_secs = 30;
+        int sleep_secs = SLEEP_SECS;
+        printf("Sleeping for %d s...\n", sleep_secs);
         fram_write(LORAMAC_OFFSET, (uint8_t *)&netif->lorawan, sizeof(netif->lorawan));
         fram_off();
         gpio_clear(ACME0_POWER_PIN);
