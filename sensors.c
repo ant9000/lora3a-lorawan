@@ -311,8 +311,9 @@ int read_sensors(uint8_t *msg, size_t len) {
 #ifdef MODULE_SPS30
     msg[0] |= 1 << 3;         // sps30
 #endif
-    uint8_t compressed[256];
     size_t N = sizeof(sensor_data);
+#ifdef COMPRESS
+    uint8_t compressed[256];
     size_t n = heatshrink_compress((uint8_t *)&sensor_data, N, compressed, sizeof(compressed));
 printf("Sizes: max = %d, sensor data = %d, compressed data = %d\n", len, N, n);
     if (n > 0 && n < len && n < N) {
@@ -322,5 +323,9 @@ printf("Sizes: max = %d, sensor data = %d, compressed data = %d\n", len, N, n);
         n = (N < len - 1) ? N : len - 1; // truncating is better than failure
         memcpy(msg + 1, &sensor_data, n);
     }
+#else
+    size_t n = (N < len - 1) ? N : len - 1; // truncating is better than failure
+    memcpy(msg + 1, &sensor_data, n);
+#endif
     return n + 1;
 }

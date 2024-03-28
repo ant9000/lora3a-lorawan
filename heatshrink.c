@@ -1,3 +1,5 @@
+#ifdef COMPRESS
+
 #include <string.h>
 #include <stdio.h>
 
@@ -50,3 +52,5 @@ int heatshrink_compress(const uint8_t *input, size_t input_len, uint8_t *output,
     }
     return n;
 }
+
+#endif

@@ -9,6 +9,7 @@ DEVELHELP ?= 1
 QUIET ?= 1
 PORT ?= /dev/ttyUSB0
 JOIN ?= OTAA
+COMPRESS ?= 1
 
 USEMODULE += saml21_cpu_debug
 USEMODULE += saml21_backup_mode
@@ -26,7 +27,10 @@ USEMODULE += shell_cmds_default
 USEMODULE += shell_extra_commands
 USEMODULE += od_string
 
-USEPKG += heatshrink
+ifneq (,$(COMPRESS))
+  CFLAGS += -DCOMPRESS
+  USEPKG += heatshrink
+endif
 
 CFLAGS += -DSX127X_PARAM_PASELECT=SX127X_PA_RFO
 
