@@ -78,6 +78,7 @@ if __name__ == "__main__":
             print("BME68X:            ", output.header.bme68x_num)
             print("BME68X_FP:         ", output.header.bme68x_fp)
             print("SPS30:             ", output.header.sps30_num)
+            print("SENSEAIR:          ", output.header.senseair_num)
             print("Compressed payload:", output.header.is_compressed)
             print("Raw data length:   ", len(output.data))
             print("Raw data:", end="")
