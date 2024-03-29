@@ -29,11 +29,22 @@ static uint16_t dur_prof[BME68X_NUMOF][BME68X_PROF_LEN] = { BME68X_DUR_PROF };
 #define SPS30_WAKEUP_DELAY_MS   (2 * MS_PER_SEC)
 #define SPS30_STARTUP_DELAY_MS (10 * MS_PER_SEC)
 #define SPS30_POLL_DELAY_MS     (1 * MS_PER_SEC)
-sps30_t sps30;
-bool sps30_init_done = false;
+static sps30_t sps30;
+static bool sps30_init_done = false;
 #define SPS30_NUMOF 1
 #else
 #define SPS30_NUMOF 0
+#endif
+
+#ifdef MODULE_SENSEAIR
+#include "senseair.h"
+#include "senseair_params.h"
+static senseair_t senseair;
+static senseair_abc_data_t senseair_calib_data;
+static bool senseair_init_done = false;
+#define SENSEAIR_NUMOF 1
+#else
+#define SENSEAIR_NUMOF 0
 #endif
 
 typedef struct __attribute__((packed)) {
@@ -61,11 +72,15 @@ typedef struct __attribute__((packed)) {
     float nc_pm10;
     float ps;
 #endif
+#ifdef MODULE_SENSEAIR
+    uint16_t conc_ppm;
+    int16_t temp_cC;
+#endif
 } sensors_data_t;
 static sensors_data_t sensor_data;
 
-#if MODULE_BME68X + MODULE_SPS30
-char sensors_thread_stack[BME68X_NUMOF + SPS30_NUMOF][THREAD_STACKSIZE_MEDIUM];
+#if MODULE_BME68X + MODULE_SPS30 + MODULE_SENSEAIR
+char sensors_thread_stack[BME68X_NUMOF + SPS30_NUMOF + SENSEAIR_NUMOF][THREAD_STACKSIZE_MEDIUM];
 #endif
 
 int init_sensors(void) {
@@ -76,6 +91,10 @@ int init_sensors(void) {
 #ifdef BME68X_POWER_PIN
         gpio_init(BME68X_POWER_PIN, GPIO_OUT);
         gpio_set(BME68X_POWER_PIN);
+#endif
+#ifdef SENSEAIR_POWER_PIN
+        gpio_init(SENSEAIR_POWER_PIN, GPIO_OUT);
+        gpio_set(SENSEAIR_POWER_PIN);
 #endif
 
 #ifdef MODULE_BME68X
@@ -116,6 +135,28 @@ int init_sensors(void) {
         DEBUG("failed.\n");
     }
 #endif
+
+#ifdef MODULE_SENSEAIR
+    DEBUG("Initialize SENSEAIR sensor ...");
+    if (senseair_init(&senseair, &senseair_params[0]) == SENSEAIR_OK) {
+        senseair_init_done = true;
+        DEBUG("OK.\n");
+    } else {
+        DEBUG("Senseair init failed.\n");
+    }
+    memset(&senseair_calib_data, 0, sizeof(senseair_calib_data));
+    if (fram_read(SENSEAIR_OFFSET, &senseair_calib_data, sizeof(senseair_calib_data))) {
+        puts("FRAM read failed.");
+    } else {
+        if (senseair_write_abc_data(&senseair, &senseair_calib_data) == SENSEAIR_OK) {
+            puts("ABC data restored to sensor.");
+        }
+        else {
+            puts("ABC data not available.");
+        }
+    }
+
+#endif
     return 0;
 }
 
@@ -125,6 +166,17 @@ int deinit_sensors(void) {
 #endif
 #ifdef BME68X_POWER_PIN
         gpio_clear(BME68X_POWER_PIN);
+#endif
+#if MODULE_SENSEAIR
+    if (senseair_read_abc_data(&senseair, &senseair_calib_data) == SENSEAIR_OK) {
+        puts("Saving SENSEAIR calibration data to FRAM.");
+        if (fram_write(SENSEAIR_OFFSET, (uint8_t *)&senseair_calib_data, sizeof(senseair_calib_data))) {
+            puts("FRAM write failed.");
+        }
+    }
+#endif
+#ifdef SENSEAIR_POWER_PIN
+        gpio_clear(SENSEAIR_POWER_PIN);
 #endif
     return 0;
 }
@@ -248,6 +300,24 @@ puts("@");
 }
 #endif
 
+#ifdef MODULE_SENSEAIR
+void *read_senseair_thread(void *arg) {
+    (void)arg;
+    uint16_t conc_ppm;
+    int16_t temp_cC;
+
+    if (senseair_read(&senseair, &conc_ppm, &temp_cC) == SENSEAIR_OK) {
+        sensor_data.conc_ppm = conc_ppm;
+        sensor_data.temp_cC = temp_cC;
+        printf("[SENSEAIR] Concentration: %d ppm\n", conc_ppm);
+        printf("[SENSEAIR] Temperature: %4.2f °C\n", (temp_cC / 100.));
+    } else {
+        DEBUG("Cannot read SENSAIR.\n");
+    }
+    return NULL;
+}
+#endif
+
 int read_sensors(uint8_t *msg, size_t len) {
     memset(&sensor_data, 0, sizeof(sensor_data));
 
@@ -285,6 +355,17 @@ int read_sensors(uint8_t *msg, size_t len) {
     }
 #endif
 
+#ifdef MODULE_SENSEAIR
+    if (senseair_init_done) {
+        sensors_pid[sensors] = thread_create(
+            sensors_thread_stack[sensors], sizeof(sensors_thread_stack[sensors]),
+            THREAD_PRIORITY_MAIN - 1, THREAD_CREATE_STACKTEST,
+            read_senseair_thread, NULL, "read_senseair_thread"
+        );
+        sensors++;
+    }
+#endif
+
     if (sensors) {
         unsigned pending, counter = 0;
         do {
@@ -311,13 +392,16 @@ int read_sensors(uint8_t *msg, size_t len) {
 #ifdef MODULE_SPS30
     msg[0] |= 1 << 3;         // sps30
 #endif
+#ifdef MODULE_SENSEAIR
+    msg[0] |= 1 << 4;         // senseair
+#endif
     size_t N = sizeof(sensor_data);
 #ifdef COMPRESS
     uint8_t compressed[256];
     size_t n = heatshrink_compress((uint8_t *)&sensor_data, N, compressed, sizeof(compressed));
 printf("Sizes: max = %d, sensor data = %d, compressed data = %d\n", len, N, n);
     if (n > 0 && n < len && n < N) {
-        msg[0] |= 1 << 4; // compressed
+        msg[0] |= 1 << 7; // compressed
         memcpy(msg + 1, compressed, n);
     } else {
         n = (N < len - 1) ? N : len - 1; // truncating is better than failure

@@ -32,7 +32,8 @@
 #include "net/gnrc/netif/hdr.h"
 #include "ztimer.h"
 
-#define LORAMAC_OFFSET  0
+#define LORAMAC_OFFSET   0
+#define SENSEAIR_OFFSET  (LORAMAC_OFFSET + sizeof(gnrc_netif_lorawan_t))
 
 #ifndef SLEEP_SECS
 #define SLEEP_SECS 60

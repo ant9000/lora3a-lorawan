@@ -3,25 +3,27 @@
 import collections, heatshrink2, struct
 
 def parse_record(data):
-    Header  = collections.namedtuple('Header', 'bme68x_num bme68x_fp sps30_num is_compressed')
-    Sensors = collections.namedtuple('Sensors', 'vcc vpanel bme68x sps30')
-    Bme68x  = collections.namedtuple('Bme68x', 'temp press hum gas')
-    Sps30   = collections.namedtuple('Sps30', 'mc_pm1 mc_pm2_5 mc_pm4 mc_pm10 nc_pm0_5 nc_pm1 nc_pm2_5 nc_pm4 nc_pm10 ps')
+    Header   = collections.namedtuple('Header', 'bme68x_num bme68x_fp sps30_num senseair_num is_compressed')
+    Sensors  = collections.namedtuple('Sensors', 'vcc vpanel bme68x sps30 senseair')
+    Bme68x   = collections.namedtuple('Bme68x', 'temp press hum gas')
+    Sps30    = collections.namedtuple('Sps30', 'mc_pm1 mc_pm2_5 mc_pm4 mc_pm10 nc_pm0_5 nc_pm1 nc_pm2_5 nc_pm4 nc_pm10 ps')
+    Senseair = collections.namedtuple('Senseair', 'conc_ppm temp_cC')
     Output  = collections.namedtuple('Output', 'header data sensors')
     hdr = data[0]
     data = data[1:]
     bme68x_num = (hdr & 0x03)
     bme68x_fp = (hdr & 0x04 != 0)
     sps30_num = (hdr & 0x08 != 0)
-    is_compressed = (hdr & 0x10 != 0)
-    header = Header(bme68x_num, bme68x_fp, sps30_num, is_compressed)
+    senseair_num = (hdr & 0x10 != 0)
+    is_compressed = (hdr & 0x80 != 0)
+    header = Header(bme68x_num, bme68x_fp, sps30_num, senseair_num, is_compressed)
     if is_compressed:
         data = heatshrink2.decompress(data, window_sz2=8, lookahead_sz2=4)
     offset = 0
     fmt = "2h"
     vcc, vpanel = struct.unpack_from(fmt, data, offset)
     offset += struct.calcsize(fmt)
-    sensors = Sensors(vcc, vpanel, [], [])
+    sensors = Sensors(vcc, vpanel, [], [], [])
     if bme68x_num:
         fmt = "h" * bme68x_num
         if bme68x_fp:
@@ -46,6 +48,10 @@ def parse_record(data):
     if sps30_num:
         fmt = "10f"
         sensors.sps30.append(Sps30(*struct.unpack_from(fmt, data, offset)))
+        offset += struct.calcsize(fmt)
+    if senseair_num:
+        fmt = "Hh"
+        sensors.senseair.append(Senseair(*struct.unpack_from(fmt, data, offset)))
         offset += struct.calcsize(fmt)
     assert offset == len(data), "ERROR: offset={}, len(data)={}".format(offset, len(data))
     output = Output(header, data, sensors)
@@ -96,6 +102,10 @@ if __name__ == "__main__":
                 print("NC PM  4   =", sps30.nc_pm4)
                 print("NC PM 10   =", sps30.nc_pm10)
                 print("PS         =", sps30.ps)
+            if output.sensors.senseair:
+                senseair = output.sensors.senseair[0]
+                print("Concentration: %d ppm" % senseair.conc_ppm);
+                print("Temperature: %4.2f °C" % (senseair.temp_cC / 100.));
             print("")
 
         except Exception as e:
