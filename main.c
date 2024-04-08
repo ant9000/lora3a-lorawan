@@ -23,6 +23,7 @@ void packet_received(uint8_t fport, const uint8_t *payload, size_t size) {
 int main(void)
 {
     int enter_shell = 0;
+    int sleep_secs = SLEEP_SECS;
 
     gpio_init(TCXO_PWR_PIN, GPIO_OUT);
     gpio_set(TCXO_PWR_PIN);
@@ -98,7 +99,6 @@ int main(void)
 
 sleep:
         // enter deep sleep
-        int sleep_secs = SLEEP_SECS;
         printf("Sleeping for %d s...\n", sleep_secs);
         fram_write(LORAMAC_OFFSET, (uint8_t *)&netif->lorawan, sizeof(netif->lorawan));
         fram_off();
