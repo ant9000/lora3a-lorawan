@@ -102,7 +102,6 @@ sleep:
         printf("Sleeping for %d s...\n", sleep_secs);
         fram_write(LORAMAC_OFFSET, (uint8_t *)&netif->lorawan, sizeof(netif->lorawan));
         fram_off();
-        gpio_clear(ACME0_POWER_PIN);
 
         netopt_state_t state = NETOPT_STATE_SLEEP;
         netif_set_opt(&netif->netif, NETOPT_STATE, 0, &state, sizeof(netopt_state_t));
