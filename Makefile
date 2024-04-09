@@ -28,8 +28,7 @@ USEMODULE += shell_extra_commands
 USEMODULE += od_string
 
 ifneq (,$(COMPRESS))
-  CFLAGS += -DCOMPRESS
-  USEPKG += heatshrink
+  USEMODULE += heatshrink_compression
 endif
 
 CFLAGS += -DSX127X_PARAM_PASELECT=SX127X_PA_RFO

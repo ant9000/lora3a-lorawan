@@ -6,6 +6,10 @@
 #define ENABLE_DEBUG 1
 #include "debug.h"
 
+#ifdef MODULE_HEATSHRINK_COMPRESSION
+#include "heatshrink.h"
+#endif
+
 #ifdef MODULE_BME68X
 #include "bme68x.h"
 #include "bme68x_params.h"
@@ -396,7 +400,7 @@ int read_sensors(uint8_t *msg, size_t len) {
     msg[0] |= 1 << 4;         // senseair
 #endif
     size_t N = sizeof(sensor_data);
-#ifdef COMPRESS
+#ifdef MODULE_HEATSHRINK_COMPRESSION
     uint8_t compressed[256];
     size_t n = heatshrink_compress((uint8_t *)&sensor_data, N, compressed, sizeof(compressed));
 printf("Sizes: max = %d, sensor data = %d, compressed data = %d\n", len, N, n);

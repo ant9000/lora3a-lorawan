@@ -56,7 +56,4 @@ int restore_loramac(void);
 void save_loramac(void);
 int send_message(uint8_t *buffer, size_t len);
 
-#ifdef COMPRESS
-int heatshrink_compress(const uint8_t *input, size_t input_len, uint8_t *output, size_t output_len);
-#endif
 #endif
