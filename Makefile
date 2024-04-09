@@ -10,6 +10,7 @@ QUIET ?= 1
 PORT ?= /dev/ttyUSB0
 JOIN ?= OTAA
 COMPRESS ?= 1
+BSEC ?=
 
 USEMODULE += saml21_cpu_debug
 USEMODULE += saml21_backup_mode
@@ -110,6 +111,10 @@ ifneq (,$(BME68X_PORT))
     DUR_PROF += ",{700,280,1400,420,700,700,700,700,700,700}"
   endif
   CFLAGS += -DBME68X_PARAMS_I2C="${SENSORS}" -DBME68X_PROF_LEN=$(PROF_LEN) -DBME68X_TEMP_PROF="$(TEMP_PROF)" -DBME68X_DUR_PROF="$(DUR_PROF)"
+endif
+
+ifneq (,$(BSEC))
+  USEMODULE += bosch_bsec
 endif
 
 include $(RIOTBASE)/Makefile.include

@@ -27,6 +27,10 @@ static uint16_t dur_prof[BME68X_NUMOF][BME68X_PROF_LEN] = { BME68X_DUR_PROF };
 #define BME68X_NUMOF 0
 #endif
 
+#ifdef MODULE_BOSCH_BSEC
+#include "bosch_bsec.h"
+#endif
+
 #ifdef MODULE_SPS30
 #include "sps30.h"
 #include "sps30_params.h"
@@ -127,6 +131,10 @@ int init_sensors(void) {
             bme68x[i].sensor.chip_id = 0;
         }
     }
+#endif
+
+#ifdef MODULE_BOSCH_BSEC
+    bosch_bsec_init();
 #endif
 
 #ifdef MODULE_SPS30
