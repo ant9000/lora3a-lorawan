@@ -54,6 +54,7 @@ typedef void (*radio_cb_t)(uint8_t fport, const uint8_t *payload, size_t size);
 gnrc_netif_t *radio_init(radio_cb_t cb);
 int restore_loramac(void);
 void save_loramac(void);
+uint32_t loramac_frame_counter(void);
 int send_message(uint8_t *buffer, size_t len);
 
 #endif

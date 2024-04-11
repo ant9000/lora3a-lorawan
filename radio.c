@@ -64,6 +64,10 @@ int restore_loramac(void) {
     return (memcmp(netif->lorawan.deveui, null_deveui, sizeof(null_deveui)) != 0);
 }
 
+uint32_t loramac_frame_counter(void) {
+    return netif->lorawan.mac.mcps.fcnt;
+}
+
 int send_message(uint8_t *buffer, size_t len) {
     gnrc_pktsnip_t *pkt, *hdr;
     gnrc_netif_hdr_t *nethdr;
