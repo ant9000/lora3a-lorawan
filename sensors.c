@@ -40,6 +40,12 @@ static uint16_t dur_prof[BME68X_NUMOF][BME68X_PROF_LEN] = { BME68X_DUR_PROF };
 static sps30_t sps30;
 static bool sps30_init_done = false;
 #define SPS30_NUMOF 1
+#ifndef SPS30_MEASURES_COUNT
+#define SPS30_MEASURES_COUNT 1
+#endif
+#ifndef SPS30_MEASURES_SKIP
+#define SPS30_MEASURES_SKIP 0
+#endif
 #else
 #define SPS30_NUMOF 0
 #endif
@@ -251,11 +257,12 @@ void *read_sps30_thread(void *arg) {
     (void)arg;
     sps30_data_t data;
     int res;
+    int n = 0;
 
     res = sps30_start_measurement(&sps30);
     if (res == SPS30_OK) {
         ztimer_sleep(ZTIMER_MSEC, SPS30_STARTUP_DELAY_MS);
-        while (1) {
+        while (n < SPS30_MEASURES_COUNT + SPS30_MEASURES_SKIP) {
             bool ready = sps30_data_ready(&sps30, &res);
             if (!ready) {
                 if (res != SPS30_OK) {
@@ -263,27 +270,28 @@ void *read_sps30_thread(void *arg) {
                     break;
                 }
                 /* try again after some time */
-puts("@");
                 ztimer_sleep(ZTIMER_MSEC, SPS30_POLL_DELAY_MS);
                 continue;
             }
             res = sps30_read_measurement(&sps30, &data);
             if (res == SPS30_OK) {
+                if (n >= SPS30_MEASURES_SKIP) {
 #ifndef MODULE_BME68X_FP
-                sensor_data.mc_pm1 = data.mc_pm1;
-                sensor_data.mc_pm2_5 = data.mc_pm2_5;
-                sensor_data.mc_pm4 = data.mc_pm4;
+                    sensor_data.mc_pm1 += data.mc_pm1;
+                    sensor_data.mc_pm2_5 += data.mc_pm2_5;
+                    sensor_data.mc_pm4 += data.mc_pm4;
 #endif
-                sensor_data.mc_pm10 = data.mc_pm10;
+                    sensor_data.mc_pm10 += data.mc_pm10;
 #ifndef MODULE_BME68X_FP
-                sensor_data.nc_pm0_5 = data.nc_pm0_5;
-                sensor_data.nc_pm1 = data.nc_pm1;
-                sensor_data.nc_pm2_5 = data.nc_pm2_5;
-                sensor_data.nc_pm4 = data.nc_pm4;
-                sensor_data.nc_pm10 = data.nc_pm10;
-                sensor_data.ps = data.ps;
+                    sensor_data.nc_pm0_5 += data.nc_pm0_5;
+                    sensor_data.nc_pm1 += data.nc_pm1;
+                    sensor_data.nc_pm2_5 += data.nc_pm2_5;
+                    sensor_data.nc_pm4 += data.nc_pm4;
+                    sensor_data.nc_pm10 += data.nc_pm10;
+                    sensor_data.ps += data.ps;
 #endif
-                puts("\nv==== SPS30 measurements ====v");
+                }
+                printf("\nv==== SPS30 measure %d ====v\n", n);
                 _sps30_print_val_row("MC PM",  "1.0", "[µg/m³]", data.mc_pm1);
                 _sps30_print_val_row("MC PM",  "2.5", "[µg/m³]", data.mc_pm2_5);
                 _sps30_print_val_row("MC PM",  "4.0", "[µg/m³]", data.mc_pm4);
@@ -299,12 +307,27 @@ puts("@");
                 puts("| NC:  Number Concentration  |");
                 puts("| TPS: Typical Particle Size |");
                 puts("^==============================^");
+                /* increment measure count */
+                n++;
             } else {
                 DEBUG("Cannot get measure data for SPS30 sensor.\n");
             }
-            sps30_stop_measurement(&sps30);
-            break;
         }
+        sps30_stop_measurement(&sps30);
+#ifndef MODULE_BME68X_FP
+        sensor_data.mc_pm1 /= SPS30_MEASURES_COUNT;
+        sensor_data.mc_pm2_5 /= SPS30_MEASURES_COUNT;
+        sensor_data.mc_pm4 /= SPS30_MEASURES_COUNT;
+#endif
+        sensor_data.mc_pm10 /= SPS30_MEASURES_COUNT;
+#ifndef MODULE_BME68X_FP
+        sensor_data.nc_pm0_5 /= SPS30_MEASURES_COUNT;
+        sensor_data.nc_pm1 /= SPS30_MEASURES_COUNT;
+        sensor_data.nc_pm2_5 /= SPS30_MEASURES_COUNT;
+        sensor_data.nc_pm4 /= SPS30_MEASURES_COUNT;
+        sensor_data.nc_pm10 /= SPS30_MEASURES_COUNT;
+        sensor_data.ps /= SPS30_MEASURES_COUNT;
+#endif
     } else {
         DEBUG("Cannot start measure for SPS30 sensor.\n");
     }
