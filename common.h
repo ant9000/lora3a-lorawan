@@ -32,8 +32,11 @@
 #include "net/gnrc/netif/hdr.h"
 #include "ztimer.h"
 
+// offset for fram persistent data
 #define LORAMAC_OFFSET   0
 #define SENSEAIR_OFFSET  (LORAMAC_OFFSET + sizeof(gnrc_netif_lorawan_t))
+#define CONFIG_OFFSET    1024
+#define CONFIG_SIZE      1024
 
 #ifndef SLEEP_SECS
 #define SLEEP_SECS 60

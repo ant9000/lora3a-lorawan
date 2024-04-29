@@ -13,11 +13,26 @@ static const shell_command_t shell_commands[] =
     { NULL,             NULL,                                   NULL            }
 };
 
+#define CONFIG_WRITE_PORT   42
 void packet_received(uint8_t fport, const uint8_t *payload, size_t size) {
     puts("PACKET CALLBACK:");
     printf("fport: %d\n", fport);
     puts("payload:");
     od_hex_dump(payload, size, OD_WIDTH_DEFAULT);
+    if ((fport == CONFIG_WRITE_PORT) && (size > 2)) {
+        printf("[FRAM CONFIG] ");
+        uint16_t address = (payload[0] << 8) + payload[1];
+        size -= 2;
+        if (address + size < CONFIG_SIZE) {
+            if (fram_write(CONFIG_OFFSET + address, (uint8_t *)&(payload[2]), size) == 0) {
+                printf("INFO: wrote %d bytes at address 0x%04x\n", size, address);
+            } else {
+                printf("ERROR: could not write %d bytes at address 0x%04x\n", size, address);
+            }
+        } else {
+            printf("ERROR: size %d is beyond available space %d\n", size, CONFIG_SIZE);
+        }
+    }
 }
 
 int main(void)
