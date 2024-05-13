@@ -42,6 +42,9 @@
 #define SLEEP_SECS 60
 #endif
 
+extern int16_t vcc;
+extern int16_t vpanel;
+
 int loramac_restore(int argc, char **argv);
 int loramac_save(int argc, char **argv);
 int loramac_erase(int argc, char **argv);

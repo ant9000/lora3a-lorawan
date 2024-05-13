@@ -355,13 +355,8 @@ void *read_senseair_thread(void *arg) {
 
 int read_sensors(uint8_t *msg, size_t len) {
     memset(&sensor_data, 0, sizeof(sensor_data));
-
-    int32_t vcc_raw = adc_sample(0, ADC_RES_16BIT);
-    int32_t vpanel_raw = adc_sample(1, ADC_RES_16BIT);
-    sensor_data.vcc = (vcc_raw * 4 * 1000) >> 16; // rescaled vcc/4 to 1V=65535 counts
-    sensor_data.vpanel = (vpanel_raw * (220 + 75) / 75 * 1000) >> 16; // adapted to real resistor partition factor (75k over 220k)
-    DEBUG("VCC: %ld, VCC rescaled: %d\n", vcc_raw, sensor_data.vcc);
-    DEBUG("Vpanel: %ld, Vpanel rescaled: %d\n", vpanel_raw, sensor_data.vpanel);
+    sensor_data.vcc = vcc;
+    sensor_data.vpanel = vpanel;
 
     kernel_pid_t sensors_pid[3];
     unsigned i, sensors = 0;

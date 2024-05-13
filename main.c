@@ -1,5 +1,11 @@
 #include "common.h"
 
+#define ENABLE_DEBUG 1
+#include "debug.h"
+
+int16_t vcc;
+int16_t vpanel;
+
 static uint8_t msg[222];
 
 static const shell_command_t shell_commands[] =
@@ -35,10 +41,22 @@ void packet_received(uint8_t fport, const uint8_t *payload, size_t size) {
     }
 }
 
+void read_voltages(void)
+{
+    int32_t vcc_raw = adc_sample(0, ADC_RES_16BIT);
+    int32_t vpanel_raw = adc_sample(1, ADC_RES_16BIT);
+    vcc = (vcc_raw * 4 * 1000) >> 16; // rescaled vcc/4 to 1V=65535 counts
+    vpanel = (vpanel_raw * (220 + 75) / 75 * 1000) >> 16; // adapted to real resistor partition factor (75k over 220k)
+    DEBUG("VCC: %ld, VCC rescaled: %d\n", vcc_raw, vcc);
+    DEBUG("Vpanel: %ld, Vpanel rescaled: %d\n", vpanel_raw, vpanel);
+}
+
 int main(void)
 {
     int enter_shell = 0;
     int sleep_secs = SLEEP_SECS;
+
+    read_voltages();
 
     gpio_init(TCXO_PWR_PIN, GPIO_OUT);
     gpio_set(TCXO_PWR_PIN);
