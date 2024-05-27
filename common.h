@@ -37,18 +37,75 @@
 #define SENSEAIR_OFFSET  (LORAMAC_OFFSET + sizeof(gnrc_netif_lorawan_t))
 #define CONFIG_OFFSET    1024
 #define CONFIG_SIZE      1024
+#define CONFIG_MAGIC     0x0a
 
+#ifndef VCC_LOW
+#define VCC_LOW      2900
+#endif
+#ifndef VCC_HIGH
+#define VCC_HIGH     3500
+#endif
+#ifndef VPANEL_LOW
+#define VPANEL_LOW   2000
+#endif
+#ifndef VPANEL_HIGH
+#define VPANEL_HIGH  4000
+#endif
 #ifndef SLEEP_SECS
-#define SLEEP_SECS 60
+#define SLEEP_SECS   60
+#endif
+#ifndef BME68X_ENERGY_MIN
+#define BME68X_ENERGY_MIN     0
+#endif
+#ifndef SPS30_ENERGY_MIN
+#define SPS30_ENERGY_MIN      0
+#endif
+#ifndef SENSEAIR_ENERGY_MIN
+#define SENSEAIR_ENERGY_MIN   0
 #endif
 
-extern int16_t vcc;
-extern int16_t vpanel;
+typedef struct {
+  uint8_t magic;
+  int16_t vcc_low;
+  int16_t vcc_high;
+  int16_t vpanel_low;
+  int16_t vpanel_high;
+  uint16_t sleep_secs;
+  uint8_t bme68x_energy_min;
+  uint8_t sps30_energy_min;
+  uint8_t senseair_energy_min;
+  // ...
+} h10_config_t;
+
+typedef struct {
+  uint8_t storage  :4;
+  uint8_t charging :4;
+} energy_t;
+
+typedef union {
+  energy_t levels;
+  uint8_t value;
+} energy_state_t;
+
+typedef struct {
+  h10_config_t config;
+  int16_t vcc;
+  int16_t vpanel;
+  energy_state_t energy_state;
+  uint16_t sleep_secs;
+  // ...
+} h10_state_t;
+
+extern h10_state_t h10_state;
+
+void compute_state(void);
 
 int loramac_restore(int argc, char **argv);
 int loramac_save(int argc, char **argv);
 int loramac_erase(int argc, char **argv);
 int loramac_dump(int argc, char **argv);
+int config_erase(int argc, char **argv);
+int config_dump(int argc, char **argv);
 int sleep_cmd(int argc, char **argv);
 int cpuid_cmd(int argc, char **argv);
 

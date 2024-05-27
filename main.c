@@ -3,9 +3,6 @@
 #define ENABLE_DEBUG 1
 #include "debug.h"
 
-int16_t vcc;
-int16_t vpanel;
-
 static uint8_t msg[222];
 
 static const shell_command_t shell_commands[] =
@@ -15,6 +12,8 @@ static const shell_command_t shell_commands[] =
     { "loramac_save",   "save LoRaWAN MAC params to FRAM",      loramac_save    },
     { "loramac_erase",  "erase LoRaWAN MAC params from FRAM",   loramac_erase   },
     { "loramac_dump",   "dump LoRaWAN MAC params from FRAM",    loramac_dump    },
+    { "config_erase",   "erase configuration params from FRAM", config_erase    },
+    { "config_dump",    "dump configuration params from FRAM",  config_dump     },
     { "sleep",          "enter deep sleep",                     sleep_cmd       },
     { NULL,             NULL,                                   NULL            }
 };
@@ -41,21 +40,9 @@ void packet_received(uint8_t fport, const uint8_t *payload, size_t size) {
     }
 }
 
-void read_voltages(void)
-{
-    // NB: ensure ACME0_POWER_PIN is on before reading vpanel
-    int32_t vcc_raw = adc_sample(0, ADC_RES_16BIT);
-    int32_t vpanel_raw = adc_sample(1, ADC_RES_16BIT);
-    vcc = (vcc_raw * 4 * 1000) >> 16; // rescaled vcc/4 to 1V=65535 counts
-    vpanel = (vpanel_raw * (220 + 75) / 75 * 1000) >> 16; // adapted to real resistor partition factor (75k over 220k)
-    DEBUG("VCC: %ld, VCC rescaled: %d\n", vcc_raw, vcc);
-    DEBUG("Vpanel: %ld, Vpanel rescaled: %d\n", vpanel_raw, vpanel);
-}
-
 int main(void)
 {
     int enter_shell = 0;
-    int sleep_secs = SLEEP_SECS;
 
     gpio_init(TCXO_PWR_PIN, GPIO_OUT);
     gpio_set(TCXO_PWR_PIN);
@@ -65,8 +52,7 @@ int main(void)
         enter_shell = 1;
     }
 
-    fram_init();
-    read_voltages();
+    compute_state();
 
     gnrc_netif_t *netif = radio_init(packet_received);
     if (!enter_shell) {
@@ -132,7 +118,7 @@ int main(void)
 
 sleep:
         // enter deep sleep
-        printf("Sleeping for %d s...\n", sleep_secs);
+        printf("Sleeping for %d s...\n", h10_state.sleep_secs);
         fram_write(LORAMAC_OFFSET, (uint8_t *)&netif->lorawan, sizeof(netif->lorawan));
         fram_off();
 
@@ -141,7 +127,7 @@ sleep:
         gpio_clear(TCXO_PWR_PIN);
         gpio_clear(TX_OUTPUT_SEL_PIN);
         saml21_extwake_t extwake = { .pin=EXTWAKE_PIN6, .polarity=EXTWAKE_HIGH, .flags=EXTWAKE_IN_PU };
-        saml21_backup_mode_enter(0, extwake, sleep_secs, 1);
+        saml21_backup_mode_enter(0, extwake, h10_state.sleep_secs, 1);
     }
 
     return 0;

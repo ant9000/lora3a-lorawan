@@ -208,6 +208,9 @@ void *read_bme68x_thread(void *arg) {
     uint8_t n_fields;
     bme68x_t *dev = &bme68x[i];
 
+    // bail out if energy is not enough
+    if (h10_state.energy_state.value < h10_state.config.bme68x_energy_min) return NULL;
+
     res = bme68x_start_measure(dev);
     if (res == BME68X_OK) {
         int sample_count = 0;
@@ -258,6 +261,9 @@ void *read_sps30_thread(void *arg) {
     sps30_data_t data;
     int res;
     int n = 0;
+
+    // bail out if energy is not enough
+    if (h10_state.energy_state.value < h10_state.config.sps30_energy_min) return NULL;
 
     res = sps30_start_measurement(&sps30);
     if (res == SPS30_OK) {
@@ -341,6 +347,9 @@ void *read_senseair_thread(void *arg) {
     uint16_t conc_ppm;
     int16_t temp_cC;
 
+    // bail out if energy is not enough
+    if (h10_state.energy_state.value < h10_state.config.senseair_energy_min) return NULL;
+
     if (senseair_read(&senseair, &conc_ppm, &temp_cC) == SENSEAIR_OK) {
         sensor_data.conc_ppm = conc_ppm;
         sensor_data.temp_cC = temp_cC;
@@ -355,8 +364,8 @@ void *read_senseair_thread(void *arg) {
 
 int read_sensors(uint8_t *msg, size_t len) {
     memset(&sensor_data, 0, sizeof(sensor_data));
-    sensor_data.vcc = vcc;
-    sensor_data.vpanel = vpanel;
+    sensor_data.vcc = h10_state.vcc;
+    sensor_data.vpanel = h10_state.vpanel;
 
     kernel_pid_t sensors_pid[3];
     unsigned i, sensors = 0;
