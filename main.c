@@ -43,6 +43,7 @@ void packet_received(uint8_t fport, const uint8_t *payload, size_t size) {
 
 void read_voltages(void)
 {
+    // NB: ensure ACME0_POWER_PIN is on before reading vpanel
     int32_t vcc_raw = adc_sample(0, ADC_RES_16BIT);
     int32_t vpanel_raw = adc_sample(1, ADC_RES_16BIT);
     vcc = (vcc_raw * 4 * 1000) >> 16; // rescaled vcc/4 to 1V=65535 counts
@@ -56,8 +57,6 @@ int main(void)
     int enter_shell = 0;
     int sleep_secs = SLEEP_SECS;
 
-    read_voltages();
-
     gpio_init(TCXO_PWR_PIN, GPIO_OUT);
     gpio_set(TCXO_PWR_PIN);
 
@@ -67,6 +66,7 @@ int main(void)
     }
 
     fram_init();
+    read_voltages();
 
     gnrc_netif_t *netif = radio_init(packet_received);
     if (!enter_shell) {
