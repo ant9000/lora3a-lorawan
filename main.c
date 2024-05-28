@@ -14,6 +14,7 @@ static const shell_command_t shell_commands[] =
     { "loramac_dump",   "dump LoRaWAN MAC params from FRAM",    loramac_dump    },
     { "config_erase",   "erase configuration params from FRAM", config_erase    },
     { "config_dump",    "dump configuration params from FRAM",  config_dump     },
+    { "config_set",     "set configuration params into FRAM",   config_set      },
     { "sleep",          "enter deep sleep",                     sleep_cmd       },
     { NULL,             NULL,                                   NULL            }
 };

@@ -36,15 +36,9 @@ void restore_config(void)
         if (config.sleep_secs > 0) {
             h10_state.config.sleep_secs = config.sleep_secs;
         }
-        if (config.bme68x_energy_min > 0) {
-            h10_state.config.bme68x_energy_min = config.bme68x_energy_min;
-        }
-        if (config.sps30_energy_min > 0) {
-            h10_state.config.sps30_energy_min = config.sps30_energy_min;
-        }
-        if (config.senseair_energy_min > 0) {
-            h10_state.config.senseair_energy_min = config.senseair_energy_min;
-        }
+        h10_state.config.bme68x_energy_min = config.bme68x_energy_min;
+        h10_state.config.sps30_energy_min = config.sps30_energy_min;
+        h10_state.config.senseair_energy_min = config.senseair_energy_min;
     }
     DEBUG(
         "CONFIG = {\n"

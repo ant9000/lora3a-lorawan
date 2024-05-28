@@ -71,6 +71,78 @@ int config_dump(int argc, char **argv)
     return 0;
 }
 
+int config_set(int argc, char **argv)
+{
+    if (argc != 3) {
+        puts("usage: config_set <param> <value>");
+        return -1;
+    }
+
+    h10_config_t config;
+    fram_read(CONFIG_OFFSET, &config, sizeof(config));
+    if (config.magic != CONFIG_MAGIC) {
+        // apply defaults
+        config.magic = CONFIG_MAGIC;
+        config.vcc_low = VCC_LOW;
+        config.vcc_high = VCC_HIGH;
+        config.vpanel_low = VPANEL_LOW;
+        config.vpanel_high = VPANEL_HIGH;
+        config.sleep_secs = SLEEP_SECS;
+        config.bme68x_energy_min = BME68X_ENERGY_MIN;
+        config.sps30_energy_min = SPS30_ENERGY_MIN;
+        config.senseair_energy_min = SENSEAIR_ENERGY_MIN;
+    }
+
+    int16_t value = atoi(argv[2]);
+    if (strcmp(argv[1], "vcc_low")==0) {
+        if (value > VCC_LOW) {
+            config.vcc_low = value;
+        } else {
+            printf("Vcc_low %d is less than %d\n", value, VCC_LOW);
+            return -1;
+        }
+    } else if (strcmp(argv[1], "vcc_high")==0) {
+        if (value > h10_state.config.vcc_low) {
+            config.vcc_high = value;
+        } else {
+            printf("Vcc_high %d is less than %d\n", value, h10_state.config.vcc_low);
+            return -1;
+        }
+    } else if (strcmp(argv[1], "vpanel_low")==0) {
+        if (value > VPANEL_LOW) {
+            config.vpanel_low = value;
+        } else {
+            printf("Vpanel_low %d is less than %d\n", value, VPANEL_LOW);
+            return -1;
+        }
+    } else if (strcmp(argv[1], "vpanel_high")==0) {
+        if (value > h10_state.config.vpanel_low) {
+            config.vpanel_high = value;
+        } else {
+            printf("Vpanel_high %d is less than %d\n", value, h10_state.config.vpanel_low);
+            return -1;
+        }
+    } else if (strcmp(argv[1], "sleep_secs")==0) {
+        if (value > 0) {
+            config.sleep_secs = (uint16_t)value;
+        } else {
+            printf("Sleep secs %d should be > 0\n", value);
+            return -1;
+        }
+    } else if (strcmp(argv[1], "bme68x_energy_min")==0) {
+        config.bme68x_energy_min = (uint8_t)(0xFF & value);
+    } else if (strcmp(argv[1], "sps30_energy_min")==0) {
+        config.sps30_energy_min = (uint8_t)(0xFF & value);
+    } else if (strcmp(argv[1], "senseair_energy_min")==0) {
+        config.senseair_energy_min = (uint8_t)(0xFF & value);
+    } else {
+        printf("Parameter '%s' unknown.", argv[1]);
+    }
+    fram_write(CONFIG_OFFSET, (uint8_t *)&config, sizeof(config));
+
+    return 0;
+}
+
 int sleep_cmd(int argc, char **argv)
 {
     if (argc != 2) {

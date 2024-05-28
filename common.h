@@ -106,6 +106,7 @@ int loramac_erase(int argc, char **argv);
 int loramac_dump(int argc, char **argv);
 int config_erase(int argc, char **argv);
 int config_dump(int argc, char **argv);
+int config_set(int argc, char **argv);
 int sleep_cmd(int argc, char **argv);
 int cpuid_cmd(int argc, char **argv);
 
