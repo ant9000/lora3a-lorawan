@@ -87,7 +87,14 @@ void compute_state(void)
     }
     DEBUG("Energy state: 0x%02x\n", h10_state.energy_state.value);
 
-    // TODO: adjust sleep_secs according to energy value
-    h10_state.sleep_secs = h10_state.config.sleep_secs;
+    // adjust sleep_secs according to energy value
+    uint16_t mult[8] = {1, 2, 5, 10, 20, 40, 60, 120};
+    int idx = (7 - h10_state.energy_state.levels.storage - h10_state.energy_state.levels.charging / 2);
+    if (idx < 0) {
+        idx = 0;
+    } else if (idx > 7) {
+        idx = 7;
+    }
+    h10_state.sleep_secs = h10_state.config.sleep_secs * mult[idx];
     DEBUG("Sleep secs: %d\n", h10_state.sleep_secs);
 }
