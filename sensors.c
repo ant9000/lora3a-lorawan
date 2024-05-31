@@ -209,7 +209,7 @@ void *read_bme68x_thread(void *arg) {
     bme68x_t *dev = &bme68x[i];
 
     // bail out if energy is not enough
-    if (h10_state.energy_state.value < h10_state.config.bme68x_energy_min) return NULL;
+    if (h10_state.energy_state.levels.storage < h10_state.config.bme68x_energy_min) return NULL;
 
     res = bme68x_start_measure(dev);
     if (res == BME68X_OK) {
@@ -263,7 +263,7 @@ void *read_sps30_thread(void *arg) {
     int n = 0;
 
     // bail out if energy is not enough
-    if (h10_state.energy_state.value < h10_state.config.sps30_energy_min) return NULL;
+    if (h10_state.energy_state.levels.storage < h10_state.config.sps30_energy_min) return NULL;
 
     res = sps30_start_measurement(&sps30);
     if (res == SPS30_OK) {
@@ -348,7 +348,7 @@ void *read_senseair_thread(void *arg) {
     int16_t temp_cC;
 
     // bail out if energy is not enough
-    if (h10_state.energy_state.value < h10_state.config.senseair_energy_min) return NULL;
+    if (h10_state.energy_state.levels.storage < h10_state.config.senseair_energy_min) return NULL;
 
     if (senseair_read(&senseair, &conc_ppm, &temp_cC) == SENSEAIR_OK) {
         sensor_data.conc_ppm = conc_ppm;
