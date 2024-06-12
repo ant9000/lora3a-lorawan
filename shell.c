@@ -137,6 +137,7 @@ int config_set(int argc, char **argv)
         config.senseair_energy_min = (uint8_t)(0xFF & value);
     } else {
         printf("Parameter '%s' unknown.", argv[1]);
+        puts("Valid parameters: vcc_low, vcc_high, vpanel_low, vpanel_high, sleep_secs, bme68x_energy_min, sps30_energy_min, senseair_energy_min.");
     }
     fram_write(CONFIG_OFFSET, (uint8_t *)&config, sizeof(config));
 
