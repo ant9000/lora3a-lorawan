@@ -99,44 +99,53 @@ char sensors_thread_stack[BME68X_NUMOF + SPS30_NUMOF + SENSEAIR_NUMOF][THREAD_ST
 
 int init_sensors(void) {
 #ifdef SPS30_POWER_PIN
-        gpio_init(SPS30_POWER_PIN, GPIO_OUT);
-        gpio_set(SPS30_POWER_PIN);
+		// bail out if energy is not enough
+		if (h10_state.energy_state.levels.storage >= h10_state.config.sps30_energy_min) {
+			gpio_init(SPS30_POWER_PIN, GPIO_OUT);
+			gpio_set(SPS30_POWER_PIN);
+		}	
 #endif
 #ifdef BME68X_POWER_PIN
-        gpio_init(BME68X_POWER_PIN, GPIO_OUT);
-        gpio_set(BME68X_POWER_PIN);
+		if (h10_state.energy_state.levels.storage >= h10_state.config.bme68x_energy_min) {
+			gpio_init(BME68X_POWER_PIN, GPIO_OUT);
+			gpio_set(BME68X_POWER_PIN);
+		}	
 #endif
 #ifdef SENSEAIR_POWER_PIN
-        gpio_init(SENSEAIR_POWER_PIN, GPIO_OUT);
-        gpio_set(SENSEAIR_POWER_PIN);
+		if (h10_state.energy_state.levels.storage >= h10_state.config.senseair_energy_min) {
+			gpio_init(SENSEAIR_POWER_PIN, GPIO_OUT);
+			gpio_set(SENSEAIR_POWER_PIN);
+		}	
 #endif
 
 #ifdef MODULE_BME68X
     int res;
-    for (size_t i = 0; i < BME68X_NUMOF; i++) {
-        DEBUG("Initialize BME68X sensor %u at address 0x%02x... ", i, bme68x_params[i].intf.i2c.addr);
-        bme68x_t *dev = &bme68x[i];
-        res = bme68x_init(dev, &bme68x_params[i]);
-        if (res == BME68X_OK) {
-            DEBUG("OK.\n");
-            // TODO: restore config from FRAM
-            dev->config.op_mode = BME68X_SEQUENTIAL_MODE;
-            dev->config.sensors.filter = BME68X_FILTER_SIZE_15;
-            dev->config.sensors.odr = BME68X_ODR_NONE;
-            dev->config.sensors.os_hum = BME68X_OS_16X;
-            dev->config.sensors.os_pres = BME68X_OS_16X;
-            dev->config.sensors.os_temp = BME68X_OS_16X;
-            dev->config.heater.enable = BME68X_ENABLE;
-            dev->config.heater.heatr_temp_prof = temp_prof[i];
-            dev->config.heater.heatr_dur_prof = dur_prof[i];
-            dev->config.heater.profile_len = ARRAY_SIZE(temp_prof[i]);
-            res = bme68x_apply_config(dev);
-        }
-        if (res != BME68X_OK) {
-            DEBUG("failed.\n");
-            bme68x[i].sensor.chip_id = 0;
-        }
-    }
+	if (h10_state.energy_state.levels.storage >= h10_state.config.bme68x_energy_min) {
+		for (size_t i = 0; i < BME68X_NUMOF; i++) {
+			DEBUG("Initialize BME68X sensor %u at address 0x%02x... ", i, bme68x_params[i].intf.i2c.addr);
+			bme68x_t *dev = &bme68x[i];
+			res = bme68x_init(dev, &bme68x_params[i]);
+			if (res == BME68X_OK) {
+				DEBUG("OK.\n");
+				// TODO: restore config from FRAM
+				dev->config.op_mode = BME68X_SEQUENTIAL_MODE;
+				dev->config.sensors.filter = BME68X_FILTER_SIZE_15;
+				dev->config.sensors.odr = BME68X_ODR_NONE;
+				dev->config.sensors.os_hum = BME68X_OS_16X;
+				dev->config.sensors.os_pres = BME68X_OS_16X;
+				dev->config.sensors.os_temp = BME68X_OS_16X;
+				dev->config.heater.enable = BME68X_ENABLE;
+				dev->config.heater.heatr_temp_prof = temp_prof[i];
+				dev->config.heater.heatr_dur_prof = dur_prof[i];
+				dev->config.heater.profile_len = ARRAY_SIZE(temp_prof[i]);
+				res = bme68x_apply_config(dev);
+			}
+			if (res != BME68X_OK) {
+				DEBUG("failed.\n");
+				bme68x[i].sensor.chip_id = 0;
+			}
+		}
+	}	
 #endif
 
 #ifdef MODULE_BOSCH_BSEC
@@ -144,36 +153,39 @@ int init_sensors(void) {
 #endif
 
 #ifdef MODULE_SPS30
-    DEBUG("Initialize SPS30 sensor ...");
-    ztimer_sleep(ZTIMER_MSEC, SPS30_WAKEUP_DELAY_MS);
-    if(sps30_init(&sps30, &sps30_params[0]) == SPS30_OK) {
-        sps30_init_done = true;
-        DEBUG("OK.\n");
-    } else {
-        DEBUG("failed.\n");
-    }
+	if (h10_state.energy_state.levels.storage >= h10_state.config.sps30_energy_min) {
+		DEBUG("Initialize SPS30 sensor ...");
+		ztimer_sleep(ZTIMER_MSEC, SPS30_WAKEUP_DELAY_MS);
+		if(sps30_init(&sps30, &sps30_params[0]) == SPS30_OK) {
+			sps30_init_done = true;
+			DEBUG("OK.\n");
+		} else {
+			DEBUG("failed.\n");
+		}
+	}	
 #endif
 
 #ifdef MODULE_SENSEAIR
-    DEBUG("Initialize SENSEAIR sensor ...");
-    if (senseair_init(&senseair, &senseair_params[0]) == SENSEAIR_OK) {
-        senseair_init_done = true;
-        DEBUG("OK.\n");
-    } else {
-        DEBUG("Senseair init failed.\n");
-    }
-    memset(&senseair_calib_data, 0, sizeof(senseair_calib_data));
-    if (fram_read(SENSEAIR_OFFSET, &senseair_calib_data, sizeof(senseair_calib_data))) {
-        puts("FRAM read failed.");
-    } else {
-        if (senseair_write_abc_data(&senseair, &senseair_calib_data) == SENSEAIR_OK) {
-            puts("ABC data restored to sensor.");
-        }
-        else {
-            puts("ABC data not available.");
-        }
-    }
-
+	if (h10_state.energy_state.levels.storage >= h10_state.config.senseair_energy_min) {
+		DEBUG("Initialize SENSEAIR sensor ...");
+		if (senseair_init(&senseair, &senseair_params[0]) == SENSEAIR_OK) {
+			senseair_init_done = true;
+			DEBUG("OK.\n");
+		} else {
+			DEBUG("Senseair init failed.\n");
+		}
+		memset(&senseair_calib_data, 0, sizeof(senseair_calib_data));
+		if (fram_read(SENSEAIR_OFFSET, &senseair_calib_data, sizeof(senseair_calib_data))) {
+			puts("FRAM read failed.");
+		} else {
+			if (senseair_write_abc_data(&senseair, &senseair_calib_data) == SENSEAIR_OK) {
+				puts("ABC data restored to sensor.");
+			}
+			else {
+				puts("ABC data not available.");
+			}
+		}
+	}
 #endif
     return 0;
 }
@@ -186,12 +198,14 @@ int deinit_sensors(void) {
         gpio_clear(BME68X_POWER_PIN);
 #endif
 #if MODULE_SENSEAIR
-    if (senseair_read_abc_data(&senseair, &senseair_calib_data) == SENSEAIR_OK) {
-        puts("Saving SENSEAIR calibration data to FRAM.");
-        if (fram_write(SENSEAIR_OFFSET, (uint8_t *)&senseair_calib_data, sizeof(senseair_calib_data))) {
-            puts("FRAM write failed.");
-        }
-    }
+	if (h10_state.energy_state.levels.storage >= h10_state.config.senseair_energy_min) {
+		if (senseair_read_abc_data(&senseair, &senseair_calib_data) == SENSEAIR_OK) {
+			puts("Saving SENSEAIR calibration data to FRAM.");
+			if (fram_write(SENSEAIR_OFFSET, (uint8_t *)&senseair_calib_data, sizeof(senseair_calib_data))) {
+				puts("FRAM write failed.");
+			}
+		}
+	}
 #endif
 #ifdef SENSEAIR_POWER_PIN
         gpio_clear(SENSEAIR_POWER_PIN);
