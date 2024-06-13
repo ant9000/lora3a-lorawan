@@ -95,7 +95,7 @@ int config_set(int argc, char **argv)
 
     int16_t value = atoi(argv[2]);
     if (strcmp(argv[1], "vcc_low")==0) {
-        if (value > VCC_LOW) {
+        if (value >= VCC_LOW) {
             config.vcc_low = value;
         } else {
             printf("Vcc_low %d is less than %d\n", value, VCC_LOW);
@@ -109,7 +109,7 @@ int config_set(int argc, char **argv)
             return -1;
         }
     } else if (strcmp(argv[1], "vpanel_low")==0) {
-        if (value > VPANEL_LOW) {
+        if (value >= VPANEL_LOW) {
             config.vpanel_low = value;
         } else {
             printf("Vpanel_low %d is less than %d\n", value, VPANEL_LOW);
