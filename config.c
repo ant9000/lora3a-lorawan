@@ -68,22 +68,22 @@ void compute_state(void)
     DEBUG("Vpanel: %ld, Vpanel rescaled: %d\n", vpanel_raw, h10_state.vpanel);
 
     // compute storage energy level
-    if (h10_state.vcc < VCC_LOW) {
+    if (h10_state.vcc < h10_state.config.vcc_low) {
         h10_state.energy_state.levels.storage = 0;
-    } else if (h10_state.vcc > VCC_HIGH) {
+    } else if (h10_state.vcc > h10_state.config.vcc_high) {
         h10_state.energy_state.levels.storage = 7;
     } else {
-        h10_state.energy_state.levels.storage = 7 * (h10_state.vcc - VCC_LOW) / (VCC_HIGH - VCC_LOW);
+        h10_state.energy_state.levels.storage = 7 * (h10_state.vcc - h10_state.config.vcc_low) / (h10_state.config.vcc_high - h10_state.config.vcc_low);
     }
 
     // compute charging energy level
-    if (h10_state.vpanel < VPANEL_LOW) {
+    if (h10_state.vpanel < h10_state.config.vpanel_low) {
         h10_state.energy_state.levels.charging = 0;
-    } else if (h10_state.vpanel > VPANEL_HIGH) {
+    } else if (h10_state.vpanel > h10_state.config.vpanel_high) {
         h10_state.energy_state.levels.charging = 7;
     } else {
         // TODO: charging is related non-linearly with vpanel
-        h10_state.energy_state.levels.charging = 7 * (h10_state.vpanel - VPANEL_LOW) / (VPANEL_HIGH - VPANEL_LOW);
+        h10_state.energy_state.levels.charging = 7 * (h10_state.vpanel - h10_state.config.vpanel_low) / (h10_state.config.vpanel_high - h10_state.config.vpanel_low);
     }
     DEBUG("Energy state: 0x%02x\n", h10_state.energy_state.value);
 
