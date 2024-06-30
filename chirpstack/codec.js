@@ -258,15 +258,18 @@ function decodeUplink(input) {
 
     // Parse BME68X sensor data if present
     if (header.bme68x_num) {
-        var bme68x_data = { temp: [], press: [], hum: [], gas: [] };
+        var bme68x_data = [];
+        for (var i = 0; i < header.bme68x_num; i++) {
+            bme68x_data.push({});
+        }
 
         // Temperature
         for (var i = 0; i < header.bme68x_num; i++) {
             if (header.bme68x_fp) {
-                bme68x_data.temp.push(view.getFloat64(offset, true));
+                bme68x_data[i].temp = view.getFloat64(offset, true);
                 offset += 8;
             } else {
-                bme68x_data.temp.push(view.getInt16(offset, true));
+                bme68x_data[i].temp = view.getInt16(offset, true);
                 offset += 2;
             }
         }
@@ -274,10 +277,10 @@ function decodeUplink(input) {
         // Pressure
         for (var i = 0; i < header.bme68x_num; i++) {
             if (header.bme68x_fp) {
-                bme68x_data.press.push(view.getFloat64(offset, true));
+                bme68x_data[i].press = view.getFloat64(offset, true);
                 offset += 8;
             } else {
-                bme68x_data.press.push(view.getInt32(offset, true));
+                bme68x_data[i].press = view.getInt32(offset, true);
                 offset += 4;
             }
         }
@@ -285,10 +288,10 @@ function decodeUplink(input) {
         // Humidity
         for (var i = 0; i < header.bme68x_num; i++) {
             if (header.bme68x_fp) {
-                bme68x_data.hum.push(view.getFloat64(offset, true));
+                bme68x_data[i].hum = view.getFloat64(offset, true);
                 offset += 8;
             } else {
-                bme68x_data.hum.push(view.getInt32(offset, true));
+                bme68x_data[i].hum = view.getInt32(offset, true);
                 offset += 4;
             }
         }
@@ -305,10 +308,10 @@ function decodeUplink(input) {
                     offset += 4;
                 }
             }
-            bme68x_data.gas.push(gas);
+            bme68x_data[i].gas = gas;
         }
 
-        sensors.bme68x.push(bme68x_data);
+        sensors.bme68x = bme68x_data;
     }
 
     // Parse SPS30 sensor data if present
