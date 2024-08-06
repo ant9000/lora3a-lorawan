@@ -34,7 +34,13 @@
 
 // offset for fram persistent data
 #define LORAMAC_OFFSET   0
+#ifdef MODULE_SENSEAIR
+#include "senseair.h"
 #define SENSEAIR_OFFSET  (LORAMAC_OFFSET + sizeof(gnrc_netif_lorawan_t))
+#define BSEC_OFFSET      (SENSEAIR_OFFSET + sizeof(senseair_abc_data_t))
+#else
+#define BSEC_OFFSET      (LORAMAC_OFFSET + sizeof(gnrc_netif_lorawan_t))
+#endif
 #define CONFIG_OFFSET    1024
 #define CONFIG_SIZE      1024
 #define CONFIG_MAGIC     0x0a

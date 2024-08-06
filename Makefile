@@ -121,6 +121,9 @@ endif
 
 ifneq (,$(BSEC))
   USEMODULE += bosch_bsec
+  USEMODULE += ztimer64_usec
+  USEMODULE += ztimer_periph_rtc
+  CFLAGS += -DBSEC_CONFIG=BME688_SEL_33V_300S_4D -DBSEC_SAMPLE_RATE=BSEC_SAMPLE_RATE_ULP
 endif
 
 include $(RIOTBASE)/Makefile.include
