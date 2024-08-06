@@ -12,7 +12,6 @@ JOIN ?= OTAA
 COMPRESS ?= 1
 BSEC ?=
 
-USEMODULE += saml21_cpu_debug
 USEMODULE += saml21_backup_mode
 USEMODULE += fram
 USEMODULE += periph_cpuid
