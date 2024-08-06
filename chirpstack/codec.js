@@ -225,6 +225,7 @@ function decodeUplink(input) {
         bme68x_fp: false,
         sps30_num: false,
         senseair_num: false,
+        bsec_num: false,
         is_compressed: false
     };
     var sensors = {
@@ -232,7 +233,8 @@ function decodeUplink(input) {
         vpanel: 0,
         bme68x: [],
         sps30: [],
-        senseair: []
+        senseair: [],
+        bsec: []
     };
 
     // Header decoding
@@ -240,6 +242,7 @@ function decodeUplink(input) {
     header.bme68x_fp = (bytes[0] & 0x04) !== 0;
     header.sps30_num = (bytes[0] & 0x08) !== 0;
     header.senseair_num = (bytes[0] & 0x10) !== 0;
+    header.bsec_num = (bytes[0] & 0x20) !== 0;
     header.is_compressed = (bytes[0] & 0x80) !== 0;
 
     var data = new Uint8Array(bytes).slice(1); // Start after the header
@@ -332,6 +335,28 @@ function decodeUplink(input) {
         senseair_data.push(view.getInt16(offset, true));
         offset += 2;
         sensors.senseair.push(senseair_data);
+    }
+
+    // Parse BSEC sensor data if present
+    if (header.bsec_num) {
+        var bsec_data = [];
+        for (var i = 0; i < header.bme68x_num; i++) {
+            bsec_data.push({});
+        }
+
+        // IAQ
+        for (var i = 0; i < header.bme68x_num; i++) {
+            bsec_data[i].iaq = view.getUint16(offset, true);
+            offset += 2;
+        }
+
+        // Accuracy
+        for (var i = 0; i < header.bme68x_num; i++) {
+            bsec_data[i].accuracy = view.getUint8(offset, true);
+            offset += 1;
+        }
+
+        sensors.bsec = bsec_data;
     }
 
     decoded.header = header;
