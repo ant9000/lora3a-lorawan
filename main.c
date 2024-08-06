@@ -128,7 +128,7 @@ sleep:
         gpio_clear(TCXO_PWR_PIN);
         gpio_clear(TX_OUTPUT_SEL_PIN);
         saml21_extwake_t extwake = { .pin=EXTWAKE_PIN6, .polarity=EXTWAKE_HIGH, .flags=EXTWAKE_IN_PU };
-        saml21_backup_mode_enter(0, extwake, h10_state.sleep_secs, 1);
+        saml21_backup_mode_enter(0, extwake, h10_state.sleep_secs, 0);
     }
 
     return 0;
