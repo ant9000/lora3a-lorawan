@@ -32,24 +32,11 @@ static uint16_t dur_prof[BME68X_NUMOF][BME68X_PROF_LEN] = { BME68X_DUR_PROF };
 #include "rtc_utils.h"
 #include "ztimer64.h"
 #include "bosch_bsec.h"
-#include "bsec_interface_multi.h"
-#include "bsec_selectivity.h"
-#include "bsec_errno.h"
-#define BSEC_CHECK_INPUT(x, shift)  (x & (1 << (shift-1)))
-#define BSEC_TOTAL_HEAT_DUR         UINT16_C(140)
 static int64_t time_start, time_stamp;
-static float temp_offset = 0.0f;
-static void *bsec_inst[BME68X_NUMOF];
 static bsec_bme_settings_t bsec_sensor_settings[BME68X_NUMOF];
-static uint8_t bsec_config[BSEC_MAX_PROPERTY_BLOB_SIZE] = {0};
-static uint8_t bsec_work_buffer[BSEC_MAX_WORKBUFFER_SIZE] = {0};
-static int32_t bsec_config_len;
-static uint8_t bsec_state[BME68X_NUMOF][BSEC_MAX_STATE_BLOB_SIZE] = {0};
 static bool bsec_init_done = false;
-uint32_t bsec_config_load(uint8_t *config_buffer, uint32_t n_buffer);
-bsec_library_return_t bsec_setup_for_iaq(void *instance);
-int bsec_apply_configuration(bsec_bme_settings_t *sensor_settings, bme68x_t *dev, int i);
-bsec_library_return_t bsec_process_data(bme68x_t *dev, int64_t tstamp_ns, bme68x_data_t data, int32_t process_data, uint8_t i);
+bsec_library_return_t setup_for_iaq(void *instance);
+bsec_library_return_t process_data(bme68x_t *dev, int64_t tstamp_ns, bme68x_data_t data, int32_t process_data, uint8_t i);
 #endif
 
 #ifdef MODULE_SPS30
@@ -180,48 +167,22 @@ int init_sensors(void) {
     time_start = (int64_t)rtc_mktime(&time) * 1000000000;
 
     bsec_library_return_t bsec_res;
-    bsec_version_t bsec_version;
+    memset(bsec_sensor_settings, 0, sizeof(bsec_sensor_settings));
+    fram_read(BSEC_OFFSET, bsec_state, sizeof(bsec_state));
+    if ((bsec_res = bsec_init()) != BSEC_OK) {
+        printf("[ERROR] BSEC init failed: %s.\n", bsec_errno(bsec_res));
+        goto bsec_out;
+    }
     for (size_t i = 0; i < BME68X_NUMOF; i++) {
-        if ((bsec_inst[i] = malloc(bsec_get_instance_size_m())) == NULL) {
-            DEBUG("[ERROR] Memory allocation failed for bsec_inst[%d].\n", i);
+        if ((bsec_res = setup_for_iaq(bsec_inst[i])) != BSEC_OK) {
+            printf("[ERROR] setup_for_iaq failed for inst[%d]: %s.\n", i, bsec_errno(bsec_res));
             goto bsec_out;
         }
-        if ((bsec_res = bsec_init_m(bsec_inst[i])) != BSEC_OK) {
-            DEBUG("[ERROR] Initialization failed for bsec_inst[%d]: %s.\n", i, bsec_errno(bsec_res));
-            goto bsec_out;
-        }
-        bsec_config_len = bsec_config_load(bsec_config, sizeof(bsec_config));
-        if (bsec_config_len > 0) {
-            if ((bsec_res = bsec_set_configuration_m(bsec_inst[i], bsec_config, bsec_config_len, bsec_work_buffer, sizeof(bsec_work_buffer))) != BSEC_OK) {
-                DEBUG("[ERROR] Configuration failed for bsec_inst[%d]: %s.\n", i, bsec_errno(bsec_res));
-                goto bsec_out;
-            }
-        }
-        if ((bsec_res = bsec_get_version_m(bsec_inst[i], &bsec_version)) != BSEC_OK) {
-            DEBUG("[ERROR] Read BSEC version failed for bsec_inst[%d]: %s.\n", i, bsec_errno(bsec_res));
-            goto bsec_out;
-        }
-        printf("BSEC version for bsec_inst[%d]: %d.%d.%d.%d\n", i, bsec_version.major, bsec_version.minor, bsec_version.major_bugfix, bsec_version.minor_bugfix);
-        if ((bsec_res = bsec_setup_for_iaq(bsec_inst[i])) != BSEC_OK) {
-            DEBUG("[ERROR] Setup for IAQ failed for bsec_inst[%d]: %s.\n", i, bsec_errno(bsec_res));
-            goto bsec_out;
-        }
-       memset(&bsec_sensor_settings[i], 0, sizeof(bsec_sensor_settings[i]));
-   }
-   fram_read(BSEC_OFFSET, bsec_state, sizeof(bsec_state));
-   for (size_t i = 0; i < BME68X_NUMOF; i++) {
-       bsec_res = bsec_set_state_m(bsec_inst[i], bsec_state[i], sizeof(bsec_state[i]), bsec_work_buffer, sizeof(bsec_work_buffer));
-       if (bsec_res != BSEC_OK) {
-           DEBUG("[ERROR] Restoring BSEC state from FRAM failed for bsec_inst[%d]: %s.\n", i, bsec_errno(bsec_res));
-           memset(bsec_state, 0, sizeof(bsec_state));
-           fram_write(BSEC_OFFSET, (uint8_t *)bsec_state, sizeof(bsec_state));
-           break;
-       }
-   }
-   DEBUG("Initialized BSEC library\n");
-   bsec_init_done = true;
+    }
+    DEBUG("Initialized BSEC library\n");
+    bsec_init_done = true;
 bsec_out:
-   (void)bsec_init_done;
+    (void)bsec_init_done;
 #endif
 
 #ifdef MODULE_SPS30
@@ -264,21 +225,16 @@ bsec_out:
 
 int deinit_sensors(void) {
 #ifdef SPS30_POWER_PIN
-   gpio_clear(SPS30_POWER_PIN);
+    gpio_clear(SPS30_POWER_PIN);
 #endif
 #ifdef MODULE_BOSCH_BSEC
-   if (bsec_init_done) {
-       bsec_library_return_t res;
-       uint32_t actual_size;
-       memset(&bsec_state, 0, sizeof(bsec_state));
-       for (size_t i = 0; i < BME68X_NUMOF; i++) {
-           res = bsec_get_state_m(bsec_inst[i], 0, bsec_state[i], sizeof(bsec_state[i]), bsec_work_buffer, sizeof(bsec_work_buffer), &actual_size);
-           if (res != BSEC_OK) {
-               DEBUG("[ERROR] Reading current BSEC state failed for bsec_inst[%d]: %s.\n", i, bsec_errno(res));
-           }
-           free(bsec_inst[i]);
-       }
-       fram_write(BSEC_OFFSET, (uint8_t *)bsec_state, sizeof(bsec_state));
+    if (bsec_init_done) {
+        bsec_library_return_t res;
+        if ((res = bsec_deinit()) == BSEC_OK) {
+            fram_write(BSEC_OFFSET, (uint8_t *)bsec_state, sizeof(bsec_state));
+        } else {
+            printf("[ERROR] BSEC deinit failed: %s.\n", bsec_errno(res));
+        }
    }
 #endif
 #ifdef BME68X_POWER_PIN
@@ -377,7 +333,7 @@ void *read_bme68x_thread(void *arg) {
             if (n_fields) {
                 for (size_t j = 0; j < n_fields; j++) {
                     if (data[j].status & BME68X_GASM_VALID_MSK) {
-                        if ((res = bsec_process_data(dev, time_stamp, data[j], bsec_sensor_settings[i].process_data, i)) == BSEC_OK) {
+                        if ((res = process_data(dev, time_stamp, data[j], bsec_sensor_settings[i].process_data, i)) == BSEC_OK) {
                             printf("BSEC[%d]: IAQ=%d (%d)\n", i, sensor_data.iaq[i], sensor_data.iaq_accuracy[i]);
                             measures++;
                         } else {
@@ -508,20 +464,7 @@ void *read_senseair_thread(void *arg) {
 #endif
 
 #ifdef MODULE_BOSCH_BSEC
-uint32_t bsec_config_load(uint8_t *config_buffer, uint32_t n_buffer)
-{
-    (void)config_buffer;
-    (void)n_buffer;
-    size_t n = sizeof(bsec_config_selectivity);
-    if (n <= n_buffer) {
-        memcpy(config_buffer, bsec_config_selectivity, n_buffer);
-    } else {
-        puts("ERROR: Config too large");
-        n = 0;
-    }
-    return n;
-}
-bsec_library_return_t bsec_setup_for_iaq(void *instance) {
+bsec_library_return_t setup_for_iaq(void *instance) {
     bsec_sensor_configuration_t virtual_sensors[13];
     bsec_sensor_configuration_t sensor_settings[BSEC_MAX_PHYSICAL_SENSOR];
     uint8_t n_sensor_settings = BSEC_MAX_PHYSICAL_SENSOR;
@@ -556,112 +499,16 @@ bsec_library_return_t bsec_setup_for_iaq(void *instance) {
 
     return bsec_update_subscription_m(instance, virtual_sensors, ARRAY_SIZE(virtual_sensors), sensor_settings, &n_sensor_settings);
 }
-int bsec_apply_configuration(bsec_bme_settings_t *sensor_settings, bme68x_t *dev, int i)
-{
-    int ret;
-    dev->config.op_mode = sensor_settings->op_mode;
-    if (sensor_settings->op_mode != BME68X_SLEEP_MODE) {
-        ret = bme68x_get_config(dev);
-        if (ret != BME68X_OK) {
-            printf("[ERROR]: Failed to read sensor %d configuration\n", i);
-            return ret;
-        }
-        dev->config.sensors.os_hum = sensor_settings->humidity_oversampling;
-        dev->config.sensors.os_temp = sensor_settings->temperature_oversampling;
-        dev->config.sensors.os_pres = sensor_settings->pressure_oversampling;
-        dev->config.heater.enable = BME68X_ENABLE;
-        if (sensor_settings->op_mode == BME68X_FORCED_MODE) {
-            dev->config.heater.heatr_temp = sensor_settings->heater_temperature;
-            dev->config.heater.heatr_dur = sensor_settings->heater_duration;
-        } else {
-            uint16_t sharedHeaterDur = BSEC_TOTAL_HEAT_DUR - (bme68x_get_measure_duration(dev) / INT64_C(1000));
-            dev->config.heater.heatr_temp_prof = sensor_settings->heater_temperature_profile;
-            dev->config.heater.heatr_dur_prof = sensor_settings->heater_duration_profile;
-            dev->config.heater.shared_heatr_dur = sharedHeaterDur;
-            dev->config.heater.profile_len = sensor_settings->heater_profile_len;
-        }
-        if ((ret = bme68x_apply_config(dev)) != BME68X_OK) {
-            printf("[ERROR]: Failed to apply sensor %d configuration\n", i);
-        }
-    }
-    if ((ret = bme68x_start_measure(dev)) != BME68X_OK) {
-        printf("[ERROR]: Failed to set op_mode for sensor %d\n", i);
-    }
-    return ret;
-}
 
-bsec_library_return_t bsec_process_data(bme68x_t *dev, int64_t tstamp_ns, bme68x_data_t data, int32_t process_data, uint8_t i)
+bsec_library_return_t process_data(bme68x_t *dev, int64_t tstamp_ns, bme68x_data_t data, int32_t process_data, uint8_t i)
 {
-    bsec_input_t inputs[BSEC_MAX_PHYSICAL_SENSOR]; /* Temp, Pres, Hum & Gas */
-    bsec_library_return_t bsec_status = BSEC_OK;
-    uint8_t n = 0;
-    /* Checks all the required sensor inputs, required for the BSEC library for the requested outputs */
-    if (BSEC_CHECK_INPUT(process_data, BSEC_INPUT_HEATSOURCE))
-    {
-        inputs[n].sensor_id = BSEC_INPUT_HEATSOURCE;
-        inputs[n].signal = temp_offset;
-        inputs[n].time_stamp = tstamp_ns;
-        n++;
-    }
-    if (BSEC_CHECK_INPUT(process_data, BSEC_INPUT_TEMPERATURE))
-    {
-        inputs[n].sensor_id = BSEC_INPUT_TEMPERATURE;
-#ifdef MODULE_BME68X_FP
-        inputs[n].signal = data.temperature;
-#else
-        inputs[n].signal = data.temperature / 100.0f;
-#endif
-        inputs[n].time_stamp = tstamp_ns;
-        n++;
-    }
-    if (BSEC_CHECK_INPUT(process_data, BSEC_INPUT_HUMIDITY))
-    {
-        inputs[n].sensor_id = BSEC_INPUT_HUMIDITY;
-#ifdef MODULE_BME68X_FP
-        inputs[n].signal = data.humidity;
-#else
-        inputs[n].signal = data.humidity / 1000.0f;
-#endif
-        inputs[n].time_stamp = tstamp_ns;
-        n++;
-    }
-    if (BSEC_CHECK_INPUT(process_data, BSEC_INPUT_PRESSURE))
-    {
-        inputs[n].sensor_id = BSEC_INPUT_PRESSURE;
-        inputs[n].signal = data.pressure;
-        inputs[n].time_stamp = tstamp_ns;
-        n++;
-    }
-    if (BSEC_CHECK_INPUT(process_data, BSEC_INPUT_GASRESISTOR) &&
-            (data.status & BME68X_GASM_VALID_MSK))
-    {
-        inputs[n].sensor_id = BSEC_INPUT_GASRESISTOR;
-        inputs[n].signal = data.gas_resistance;
-        inputs[n].time_stamp = tstamp_ns;
-        n++;
-    }
-    if (BSEC_CHECK_INPUT(process_data, BSEC_INPUT_PROFILE_PART) &&
-            (data.status & BME68X_GASM_VALID_MSK))
-    {
-        inputs[n].sensor_id = BSEC_INPUT_PROFILE_PART;
-        inputs[n].signal = (dev->config.op_mode == BME68X_FORCED_MODE) ? 0 : data.gas_index;
-        inputs[n].time_stamp = tstamp_ns;
-        n++;
-    }
+	bsec_library_return_t bsec_status;
+    bsec_output_t bsec_outputs[BSEC_NUMBER_OUTPUTS];
+    uint8_t num_bsec_outputs = BSEC_NUMBER_OUTPUTS;
+    uint8_t index = 0;
 
-    if (n > 0)
-    {
-        /* Processing of the input signals and returning of output samples is performed by bsec_do_steps() */
-        bsec_output_t bsec_outputs[BSEC_NUMBER_OUTPUTS];
-        uint8_t num_bsec_outputs = 0;
-        uint8_t index = 0;
-        num_bsec_outputs = BSEC_NUMBER_OUTPUTS;
-        /* Perform processing of the data by BSEC
-           Note:
-           * The number of outputs you get depends on what you asked for during bsec_update_subscription(). This is
-             handled under bme68x_bsec_update_subscription() function in this example file.
-           * The number of actual outputs that are returned is written to num_bsec_outputs. */
-        bsec_status = bsec_do_steps_m(bsec_inst[i], inputs, n, bsec_outputs, &num_bsec_outputs);
+    bsec_status = bsec_process_data(tstamp_ns, data, process_data, &dev[i], i, bsec_outputs, &num_bsec_outputs);
+    if (bsec_status == BSEC_OK) {
         for (index = 0; index < num_bsec_outputs; index++)
         {
             switch (bsec_outputs[index].sensor_id)
