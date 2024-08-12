@@ -465,37 +465,13 @@ void *read_senseair_thread(void *arg) {
 
 #ifdef MODULE_BOSCH_BSEC
 bsec_library_return_t setup_for_iaq(void *instance) {
-    bsec_sensor_configuration_t virtual_sensors[13];
+    bsec_sensor_configuration_t virtual_sensors[1];
     bsec_sensor_configuration_t sensor_settings[BSEC_MAX_PHYSICAL_SENSOR];
     uint8_t n_sensor_settings = BSEC_MAX_PHYSICAL_SENSOR;
     float sample_rate = BSEC_SAMPLE_RATE;
 
-    virtual_sensors[0].sensor_id = BSEC_OUTPUT_RAW_PRESSURE;
+    virtual_sensors[0].sensor_id = BSEC_OUTPUT_IAQ;
     virtual_sensors[0].sample_rate = sample_rate;
-    virtual_sensors[1].sensor_id = BSEC_OUTPUT_RAW_TEMPERATURE;
-    virtual_sensors[1].sample_rate = sample_rate;
-    virtual_sensors[2].sensor_id = BSEC_OUTPUT_RAW_HUMIDITY;
-    virtual_sensors[2].sample_rate = sample_rate;
-    virtual_sensors[3].sensor_id = BSEC_OUTPUT_RAW_GAS;
-    virtual_sensors[3].sample_rate = sample_rate;
-    virtual_sensors[4].sensor_id = BSEC_OUTPUT_IAQ;
-    virtual_sensors[4].sample_rate = sample_rate;
-    virtual_sensors[5].sensor_id = BSEC_OUTPUT_SENSOR_HEAT_COMPENSATED_TEMPERATURE;
-    virtual_sensors[5].sample_rate = sample_rate;
-    virtual_sensors[6].sensor_id = BSEC_OUTPUT_SENSOR_HEAT_COMPENSATED_HUMIDITY;
-    virtual_sensors[6].sample_rate = sample_rate;
-    virtual_sensors[7].sensor_id = BSEC_OUTPUT_STATIC_IAQ;
-    virtual_sensors[7].sample_rate = sample_rate;
-    virtual_sensors[8].sensor_id = BSEC_OUTPUT_CO2_EQUIVALENT;
-    virtual_sensors[8].sample_rate = sample_rate;
-    virtual_sensors[9].sensor_id = BSEC_OUTPUT_BREATH_VOC_EQUIVALENT;
-    virtual_sensors[9].sample_rate = sample_rate;
-    virtual_sensors[10].sensor_id = BSEC_OUTPUT_STABILIZATION_STATUS;
-    virtual_sensors[10].sample_rate = sample_rate;
-    virtual_sensors[11].sensor_id = BSEC_OUTPUT_RUN_IN_STATUS;
-    virtual_sensors[11].sample_rate = sample_rate;
-    virtual_sensors[12].sensor_id = BSEC_OUTPUT_GAS_PERCENTAGE;
-    virtual_sensors[12].sample_rate = sample_rate;
 
     return bsec_update_subscription_m(instance, virtual_sensors, ARRAY_SIZE(virtual_sensors), sensor_settings, &n_sensor_settings);
 }
