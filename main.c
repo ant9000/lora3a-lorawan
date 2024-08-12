@@ -92,6 +92,11 @@ int main(void)
         }
     }
 
+    netopt_state_t state = NETOPT_STATE_SLEEP;
+    if (netif_set_opt(&netif->netif, NETOPT_STATE, 0, &state, sizeof(state)) < 0) {
+        puts("ERROR: unable to set radio to sleep");
+    }
+
     if (enter_shell) {
         puts("Initialization successful - starting the shell now");
 
