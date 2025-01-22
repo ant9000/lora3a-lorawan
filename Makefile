@@ -22,6 +22,7 @@ USEMODULE += auto_init_gnrc_netif
 USEMODULE += gnrc_lorawan
 USEMODULE += gnrc_txtsnd
 
+USEMODULE += ps
 USEMODULE += shell
 USEMODULE += shell_cmds_default
 USEMODULE += shell_extra_commands
