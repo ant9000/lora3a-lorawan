@@ -7,6 +7,7 @@ h10_state_t h10_state;
 
 void restore_config(void)
 {
+    size_t i;
     h10_config_t config;
     // apply defaults
     h10_state.config.vcc_low = VCC_LOW;
@@ -17,6 +18,8 @@ void restore_config(void)
     h10_state.config.bme68x_energy_min = BME68X_ENERGY_MIN;
     h10_state.config.sps30_energy_min = SPS30_ENERGY_MIN;
     h10_state.config.senseair_energy_min = SENSEAIR_ENERGY_MIN;
+    uint8_t sleep_secs_mult[8] = SLEEP_SECS_MULT;
+    memcpy(h10_state.config.sleep_secs_mult, sleep_secs_mult, ARRAY_SIZE(sleep_secs_mult));
     // read values from FRAM
     fram_read(CONFIG_OFFSET, &config, sizeof(config));
     if (config.magic == CONFIG_MAGIC) {
@@ -39,6 +42,16 @@ void restore_config(void)
         h10_state.config.bme68x_energy_min = config.bme68x_energy_min;
         h10_state.config.sps30_energy_min = config.sps30_energy_min;
         h10_state.config.senseair_energy_min = config.senseair_energy_min;
+        // ensure sleep sec multiplier starts at 1 and is monotonic
+        uint8_t mult_ok = (config.sleep_secs_mult[0] == 1 ? 1 : 0);
+        for (i=1; mult_ok && i<ARRAY_SIZE(config.sleep_secs_mult); i++) {
+            mult_ok = (config.sleep_secs_mult[i] >= config.sleep_secs_mult[i-1] ? 1 : 0);
+        }
+        if (mult_ok) {
+            for (i=0; i<ARRAY_SIZE(config.sleep_secs_mult); i++) {
+                h10_state.config.sleep_secs_mult[i] = config.sleep_secs_mult[i];
+            }
+        }
     }
     DEBUG(
         "CONFIG = {\n"
@@ -88,13 +101,12 @@ void compute_state(void)
     DEBUG("Energy state: 0x%02x\n", h10_state.energy_state.value);
 
     // adjust sleep_secs according to energy value
-    uint16_t mult[8] = {1, 2, 5, 10, 20, 40, 60, 120};
     int idx = (7 - h10_state.energy_state.levels.storage - h10_state.energy_state.levels.charging / 2);
     if (idx < 0) {
         idx = 0;
     } else if (idx > 7) {
         idx = 7;
     }
-    h10_state.sleep_secs = h10_state.config.sleep_secs * mult[idx];
+    h10_state.sleep_secs = h10_state.config.sleep_secs * h10_state.config.sleep_secs_mult[idx];
     DEBUG("Sleep secs: %d\n", h10_state.sleep_secs);
 }

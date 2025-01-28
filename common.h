@@ -60,14 +60,17 @@
 #ifndef SLEEP_SECS
 #define SLEEP_SECS   60
 #endif
+#ifndef SLEEP_SECS_MULT
+#define SLEEP_SECS_MULT   {1,1,2,2,3,3,4,5}
+#endif
 #ifndef BME68X_ENERGY_MIN
-#define BME68X_ENERGY_MIN     0
+#define BME68X_ENERGY_MIN     1
 #endif
 #ifndef SPS30_ENERGY_MIN
-#define SPS30_ENERGY_MIN      0
+#define SPS30_ENERGY_MIN      3
 #endif
 #ifndef SENSEAIR_ENERGY_MIN
-#define SENSEAIR_ENERGY_MIN   0
+#define SENSEAIR_ENERGY_MIN   1
 #endif
 
 typedef struct {
@@ -80,6 +83,7 @@ typedef struct {
   uint8_t bme68x_energy_min;
   uint8_t sps30_energy_min;
   uint8_t senseair_energy_min;
+  uint8_t sleep_secs_mult[8];
   // ...
 } h10_config_t;
 
