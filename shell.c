@@ -61,10 +61,14 @@ int config_dump(int argc, char **argv)
         puts("Configuration parameters:");
         printf(
             "  vcc_low: %d, vcc_high: %d, vpanel_low: %d, vpanel_high: %d, sleep_secs: %d,\n"
-            "  bme68x_energy_min: %d, sps30_energy_min: %d, senseair_energy_min: %d\n",
+            "  bme68x_energy_min: %d, sps30_energy_min: %d, senseair_energy_min: %d,\n",
             config.vcc_low, config.vcc_high, config.vpanel_low, config.vpanel_high, config.sleep_secs,
             config.bme68x_energy_min, config.sps30_energy_min, config.senseair_energy_min
         );
+        printf("  sleep_secs_mult: {");
+        for(size_t i=0; i<ARRAY_SIZE(config.sleep_secs_mult); i++) {
+            printf("%d%s", config.sleep_secs_mult[i], (i<ARRAY_SIZE(config.sleep_secs_mult)-1? ", " : "}\n"));
+        }
     } else {
         puts("No configuration parameters are present in FRAM");
     }
@@ -73,11 +77,12 @@ int config_dump(int argc, char **argv)
 
 int config_set(int argc, char **argv)
 {
-    if (argc != 3) {
+    if (argc < 3) {
         puts("usage: config_set <param> <value>");
         return -1;
     }
 
+    uint8_t sleep_secs_mult[8] = SLEEP_SECS_MULT;
     h10_config_t config;
     fram_read(CONFIG_OFFSET, &config, sizeof(config));
     if (config.magic != CONFIG_MAGIC) {
@@ -91,6 +96,7 @@ int config_set(int argc, char **argv)
         config.bme68x_energy_min = BME68X_ENERGY_MIN;
         config.sps30_energy_min = SPS30_ENERGY_MIN;
         config.senseair_energy_min = SENSEAIR_ENERGY_MIN;
+        memcpy(config.sleep_secs_mult, sleep_secs_mult, ARRAY_SIZE(sleep_secs_mult));
     }
 
     int16_t value = atoi(argv[2]);
@@ -135,9 +141,31 @@ int config_set(int argc, char **argv)
         config.sps30_energy_min = (uint8_t)(0xFF & value);
     } else if (strcmp(argv[1], "senseair_energy_min")==0) {
         config.senseair_energy_min = (uint8_t)(0xFF & value);
+    } else if (strcmp(argv[1], "sleep_secs_mult")==0) {
+        int i;
+        int n = ARRAY_SIZE(sleep_secs_mult);
+        if (argc != n + 2) {
+            printf("Sleep secs mult needs %d values, but %d were provided\n", n, argc-2);
+            return -1;
+        }
+        // ensure sleep sec multiplier starts at 1 and is monotonic
+        sleep_secs_mult[0] = value;
+        uint8_t mult_ok = (sleep_secs_mult[0] == 1 ? 1 : 0);
+        for (i=1; mult_ok && i<n; i++) {
+            sleep_secs_mult[i] = atoi(argv[i+2]);
+            mult_ok = (sleep_secs_mult[i] >= sleep_secs_mult[i-1] ? 1 : 0);
+        }
+        if (mult_ok) {
+            for (i=0; i<n; i++) {
+                config.sleep_secs_mult[i] = sleep_secs_mult[i];
+            }
+        } else {
+            printf("Sleep secs mult values should start at 1 and be monotonic\n");
+            return -1;
+        }
     } else {
         printf("Parameter '%s' unknown.", argv[1]);
-        puts("Valid parameters: vcc_low, vcc_high, vpanel_low, vpanel_high, sleep_secs, bme68x_energy_min, sps30_energy_min, senseair_energy_min.");
+        puts("Valid parameters: vcc_low, vcc_high, vpanel_low, vpanel_high, sleep_secs, bme68x_energy_min, sps30_energy_min, senseair_energy_min, sleep_secs_mult.");
     }
     fram_write(CONFIG_OFFSET, (uint8_t *)&config, sizeof(config));
 
