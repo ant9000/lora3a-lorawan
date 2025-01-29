@@ -53,11 +53,12 @@ void restore_config(void)
             }
         }
     }
+#if ENABLE_DEBUG
     DEBUG(
         "CONFIG = {\n"
         "  vcc_low: %d, vcc_high: %d, vpanel_low: %d, vpanel_high: %d, sleep_secs: %d,\n"
         "  bme68x_energy_min: %d, sps30_energy_min: %d, senseair_energy_min: %d\n"
-        "}\n",
+        "  sleep_secs_mult: {",
         h10_state.config.vcc_low, h10_state.config.vcc_high,
         h10_state.config.vpanel_low, h10_state.config.vpanel_high,
         h10_state.config.sleep_secs,
@@ -65,6 +66,14 @@ void restore_config(void)
         h10_state.config.sps30_energy_min,
         h10_state.config.senseair_energy_min
     );
+    for (i=0; i<ARRAY_SIZE(h10_state.config.sleep_secs_mult); i++) {
+        DEBUG("%d%s",
+            h10_state.config.sleep_secs_mult[i],
+            (i < ARRAY_SIZE(h10_state.config.sleep_secs_mult) - 1 ? ", " : "}\n")
+        );
+    }
+    DEBUG("}\n");
+#endif
 }
 
 void compute_state(void)
