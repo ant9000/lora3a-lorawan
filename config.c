@@ -57,7 +57,7 @@ void restore_config(void)
     DEBUG(
         "CONFIG = {\n"
         "  vcc_low: %d, vcc_high: %d, vpanel_low: %d, vpanel_high: %d, sleep_secs: %d,\n"
-        "  bme68x_energy_min: %d, sps30_energy_min: %d, senseair_energy_min: %d\n"
+        "  bme68x_energy_min: %d, sps30_energy_min: %d, senseair_energy_min: %d,\n"
         "  sleep_secs_mult: {",
         h10_state.config.vcc_low, h10_state.config.vcc_high,
         h10_state.config.vpanel_low, h10_state.config.vpanel_high,
