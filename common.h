@@ -49,7 +49,7 @@
 #define VCC_LOW      2900
 #endif
 #ifndef VCC_HIGH
-#define VCC_HIGH     3500
+#define VCC_HIGH     3400
 #endif
 #ifndef VPANEL_LOW
 #define VPANEL_LOW   2000
