@@ -274,11 +274,12 @@ void *read_bme68x_thread(void *arg) {
        int sample_count = 0;
        do {
            delay = bme68x_get_measure_duration(dev) + (dev->config.heater.heatr_dur_prof[sample_count] * 1000);
-           bme68x_wait_us(dev, delay);
-           res = bme68x_get_measure_data(dev, data, &n_fields);
-           if (res == BME68X_W_NO_NEW_DATA) {
-               continue;
-           } else if (res != BME68X_OK) {
+           int retry = 3;
+           do {
+              bme68x_wait_us(dev, delay);
+              res = bme68x_get_measure_data(dev, data, &n_fields);
+           } while ((res==BME68X_W_NO_NEW_DATA) && ((retry--)>0));
+           if (res != BME68X_OK) {
                DEBUG("Cannot get measure data for BME68x sensor %d, sample %d.\n", i, sample_count);
                break;
            }
