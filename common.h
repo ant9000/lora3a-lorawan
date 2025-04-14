@@ -119,6 +119,9 @@ int config_dump(int argc, char **argv);
 int config_set(int argc, char **argv);
 int sleep_cmd(int argc, char **argv);
 int cpuid_cmd(int argc, char **argv);
+#ifdef MODULE_SENSEAIR
+int senseair_calib(int argc, char **argv);
+#endif
 
 int init_sensors(void);
 int read_sensors(uint8_t *msg, size_t len);

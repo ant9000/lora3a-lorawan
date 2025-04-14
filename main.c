@@ -16,6 +16,9 @@ static const shell_command_t shell_commands[] =
     { "config_dump",    "dump configuration params from FRAM",  config_dump     },
     { "config_set",     "set configuration params into FRAM",   config_set      },
     { "sleep",          "enter deep sleep",                     sleep_cmd       },
+#ifdef MODULE_SENSEAIR
+    { "senseair_calib", "force Senseair ABC calibration",       senseair_calib  },
+#endif
     { NULL,             NULL,                                   NULL            }
 };
 

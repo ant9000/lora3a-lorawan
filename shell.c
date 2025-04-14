@@ -199,4 +199,3 @@ int cpuid_cmd(int argc, char **argv)
     od_hex_dump(cid, sizeof(cid), 0);
     return 0;
 }
-

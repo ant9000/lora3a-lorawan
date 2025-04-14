@@ -596,3 +596,37 @@ printf("Sizes: max = %d, sensor data = %d, compressed data = %d\n", len, N, n);
 #endif
     return n + 1;
 }
+
+#ifdef MODULE_SENSEAIR
+int senseair_calib(int argc, char **argv)
+{
+    (void)argc;
+    (void)argv;
+#ifdef SENSEAIR_POWER_PIN
+    gpio_init(SENSEAIR_POWER_PIN, GPIO_OUT);
+    gpio_set(SENSEAIR_POWER_PIN);
+#endif
+    puts("Reading SENSEAIR calibration data from FRAM.");
+    memset(&senseair_calib_data, 0, sizeof(senseair_calib_data));
+    if (fram_read(SENSEAIR_OFFSET, &senseair_calib_data, sizeof(senseair_calib_data))) {
+        puts("FRAM read failed.");
+    } else {
+        if (senseair_write_abc_data(&senseair, &senseair_calib_data) == SENSEAIR_OK) {
+            puts("ABC data restored to sensor.");
+        }
+        else {
+            puts("ABC data not available.");
+        }
+    }
+    int res = senseair_force_abc_calibration(&senseair);
+    printf("Calibration %s.\n", (res == SENSEAIR_OK ? "complete" : "failed"));
+    puts("Saving SENSEAIR calibration data to FRAM.");
+    if (fram_write(SENSEAIR_OFFSET, (uint8_t *)&senseair_calib_data, sizeof(senseair_calib_data))) {
+        puts("FRAM write failed.");
+    }
+#ifdef SENSEAIR_POWER_PIN
+   gpio_clear(SENSEAIR_POWER_PIN);
+#endif
+    return 0;
+}
+#endif
