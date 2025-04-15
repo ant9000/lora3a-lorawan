@@ -120,6 +120,9 @@ int config_set(int argc, char **argv);
 int sleep_cmd(int argc, char **argv);
 int cpuid_cmd(int argc, char **argv);
 #ifdef MODULE_SENSEAIR
+int senseair_on(int argc, char **argv);
+int senseair_off(int argc, char **argv);
+int senseair_measure(int argc, char **argv);
 int senseair_calib(int argc, char **argv);
 #endif
 

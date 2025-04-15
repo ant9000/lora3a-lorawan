@@ -598,14 +598,27 @@ printf("Sizes: max = %d, sensor data = %d, compressed data = %d\n", len, N, n);
 }
 
 #ifdef MODULE_SENSEAIR
-int senseair_calib(int argc, char **argv)
+int senseair_on(int argc, char **argv)
 {
     (void)argc;
     (void)argv;
 #ifdef SENSEAIR_POWER_PIN
     gpio_init(SENSEAIR_POWER_PIN, GPIO_OUT);
     gpio_set(SENSEAIR_POWER_PIN);
+    ztimer_sleep(ZTIMER_MSEC, 50);
 #endif
+    printf("Initialize SENSEAIR sensor ...");
+    if (senseair_init(&senseair, &senseair_params[0]) == SENSEAIR_OK) {
+        senseair_init_done = true;
+        printf("OK.\n");
+    } else {
+        printf("Senseair init failed.\n");
+#ifdef SENSEAIR_POWER_PIN
+        gpio_clear(SENSEAIR_POWER_PIN);
+#endif
+        memset(&senseair, 0, sizeof(senseair));
+        return 1;
+    }
     puts("Reading SENSEAIR calibration data from FRAM.");
     memset(&senseair_calib_data, 0, sizeof(senseair_calib_data));
     if (fram_read(SENSEAIR_OFFSET, &senseair_calib_data, sizeof(senseair_calib_data))) {
@@ -618,15 +631,58 @@ int senseair_calib(int argc, char **argv)
             puts("ABC data not available.");
         }
     }
-    int res = senseair_force_abc_calibration(&senseair);
-    printf("Calibration %s.\n", (res == SENSEAIR_OK ? "complete" : "failed"));
-    puts("Saving SENSEAIR calibration data to FRAM.");
-    if (fram_write(SENSEAIR_OFFSET, (uint8_t *)&senseair_calib_data, sizeof(senseair_calib_data))) {
-        puts("FRAM write failed.");
+    return 0;
+}
+
+int senseair_off(int argc, char **argv)
+{
+    (void)argc;
+    (void)argv;
+    if (senseair_read_abc_data(&senseair, &senseair_calib_data) == SENSEAIR_OK) {
+        puts("Saving SENSEAIR calibration data to FRAM.");
+        if (fram_write(SENSEAIR_OFFSET, (uint8_t *)&senseair_calib_data, sizeof(senseair_calib_data))) {
+            puts("FRAM write failed.");
+        }
     }
 #ifdef SENSEAIR_POWER_PIN
-   gpio_clear(SENSEAIR_POWER_PIN);
+    gpio_clear(SENSEAIR_POWER_PIN);
 #endif
+    memset(&senseair_calib_data, 0, sizeof(senseair_calib_data));
+    memset(&senseair, 0, sizeof(senseair));
+    senseair_init_done = false;
+    return 0;
+}
+
+int senseair_measure(int argc, char **argv)
+{
+    (void)argc;
+    (void)argv;
+    uint16_t conc_ppm;
+    int16_t temp_cC;
+
+    if (!senseair_init_done) {
+        printf("Senseair not initialized.\n");
+        return 1;
+    }
+    if (senseair_read(&senseair, &conc_ppm, &temp_cC) == SENSEAIR_OK) {
+        printf("Concentration: %d ppm\n", conc_ppm);
+        printf("Temperature: %4.2f °C\n", (temp_cC / 100.));
+    } else {
+        puts("Cannot read SENSAIR.");
+    }
+    return 0;
+}
+
+int senseair_calib(int argc, char **argv)
+{
+    (void)argc;
+    (void)argv;
+    if (!senseair_init_done) {
+        printf("Senseair not initialized.\n");
+        return 1;
+    }
+    int res = senseair_background_calibration(&senseair);
+    printf("Calibration %s.\n", (res == SENSEAIR_OK ? "complete" : "failed"));
     return 0;
 }
 #endif
